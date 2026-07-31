@@ -4,6 +4,8 @@
 
 # PicoPro Eurorack
 
+[English](README.md) | **简体中文**
+
 PicoPro Eurorack 是一套基于4HPico DSP的二次开发模块，面向 RP2350 的多应用 DSP 固件。它把多个 Arduino-Pico 音频应用打包进一个 UF2，通过 64×32 OLED 和旋转编码器选择应用。
 
 硬件项目：[2HPico Eurorack Module Hardware](https://github.com/rheslip/2HPico-Eurorack-Module-Hardware)
