@@ -1,0 +1,8 @@
+.DS_Store
+.vscode
+Temp
+Bootloader/build
+reference
+sims/__pycache__
+Tools/__pycache__
+Bootloader/Tools/__pycache__

@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PicoPro 64×32 UI Simulator</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #000;
+      --panel: #0a0a0a;
+      --pixel-off: #000;
+      --pixel-on: #fff;
+      --text: #fff;
+      --muted: #b8b8b8;
+      --accent: #fff;
+    }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+      color: var(--text);
+      font: 14px/1.45 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+    main {
+      width: min(920px, calc(100vw - 32px));
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .font-browser {
+      width: min(920px, calc(100vw - 32px));
+      margin-top: 24px;
+      grid-column: 1 / -1;
+    }
+    .screen-wrap, .panel {
+      background: var(--panel);
+      border: 1px solid #303030;
+      border-radius: 18px;
+      box-shadow: 0 24px 80px rgba(0, 0, 0, .35);
+    }
+    .screen-wrap {
+      padding: 18px;
+    }
+    canvas {
+      display: block;
+      width: 640px;
+      height: 320px;
+      image-rendering: pixelated;
+      background: var(--pixel-off);
+      border-radius: 8px;
+      outline: 1px solid #222;
+    }
+    .panel {
+      padding: 18px 20px;
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 16px;
+      color: var(--accent);
+    }
+    p {
+      margin: 8px 0;
+      color: var(--muted);
+    }
+    kbd {
+      display: inline-block;
+      min-width: 22px;
+      padding: 2px 6px;
+      margin: 0 2px;
+      border: 1px solid #555;
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      color: var(--text);
+      background: #050505;
+      text-align: center;
+    }
+    select, button, input[type="text"] {
+      margin-top: 10px;
+      border: 1px solid #555;
+      border-radius: 8px;
+      padding: 8px 10px;
+      color: var(--text);
+      background: #050505;
+      font: inherit;
+    }
+    input[type="text"] {
+      box-sizing: border-box;
+      width: 100%;
+    }
+    .control-row {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      margin-top: 10px;
+      color: var(--muted);
+    }
+    input[type="range"] {
+      width: 180px;
+      accent-color: #fff;
+    }
+    .status {
+      margin-top: 14px;
+      padding: 12px;
+      border-radius: 10px;
+      background: #050505;
+      white-space: pre-wrap;
+      color: var(--text);
+    }
+    .font-toolbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: end;
+      margin-top: 8px;
+    }
+    .font-toolbar label {
+      color: var(--muted);
+    }
+    .font-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+      max-height: 520px;
+      overflow: auto;
+      padding-right: 4px;
+    }
+    .font-card {
+      border: 1px solid #303030;
+      border-radius: 12px;
+      padding: 10px;
+      background: #050505;
+    }
+    .font-card.current {
+      border-color: #fff;
+    }
+    .font-card-title {
+      margin-bottom: 8px;
+      color: var(--text);
+      font-size: 12px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .font-preview {
+      width: 100%;
+      height: auto;
+      image-rendering: pixelated;
+      background: #000;
+      border-radius: 6px;
+      outline: 1px solid #222;
+    }
+    .font-meta, .font-error {
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      .font-toolbar { grid-template-columns: 1fr; }
+      canvas { width: 100%; height: auto; aspect-ratio: 2 / 1; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="screen-wrap">
+      <canvas id="oled" width="640" height="320" aria-label="64 by 32 OLED simulator"></canvas>
+    </section>
+    <section class="panel">
+      <h1>PicoPro OLED UI Simulator</h1>
+      <p><kbd>←</kbd> encoder left, <kbd>→</kbd> encoder right</p>
+      <p><kbd>↓</kbd> selector: enter app; app: encoder button</p>
+      <p>Double tap <kbd>↓</kbd> in app menu: CV assignment popup</p>
+      <p>Hold <kbd>↓</kbd> inside app: return to selector</p>
+      <p><kbd>1</kbd>…<kbd>6</kbd> jump to app, <kbd>S</kbd> selector, <kbd>R</kbd> reset</p>
+      <label>
+        Selector app
+        <select id="appSelect"></select>
+      </label>
+      <button id="enterButton" type="button">Enter App</button>
+      <button id="selectorButton" type="button">Selector</button>
+      <button id="resetButton" type="button">Reset</button>
+      <div class="control-row">
+        <label for="scaleInput">Screen scale</label>
+        <input id="scaleInput" type="range" min="4" max="24" step="1" value="10">
+        <span id="scaleValue">10×</span>
+      </div>
+      <div id="status" class="status">Loading font…</div>
+    </section>
+    <section class="panel font-browser">
+      <h1>Font comparison</h1>
+      <p>Preview every Adafruit GFX header in <code>Fonts/</code> against the current firmware font.</p>
+      <div class="font-toolbar">
+        <label>
+          Sample text, use <code>|</code> between menu name and value
+          <input id="fontSample" type="text" value="delay ms|0.50">
+        </label>
+        <label>
+          Filter
+          <input id="fontFilter" type="text" placeholder="FreeSans, TomThumb…">
+        </label>
+        <span id="fontCount">Loading fonts…</span>
+      </div>
+      <div id="fontGrid" class="font-grid"></div>
+    </section>
+  </main>
+  <script src="picopro_ui_sim.js"></script>
+</body>
+</html>

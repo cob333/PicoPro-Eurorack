@@ -1,0 +1,6 @@
+#ifndef PICOPRO_CLICK_ENCODER_COMPAT_H_
+#define PICOPRO_CLICK_ENCODER_COMPAT_H_
+
+#include "hardware/ClickEncoder.h"
+
+#endif // PICOPRO_CLICK_ENCODER_COMPAT_H_

@@ -1,0 +1,84 @@
+{
+  "target": "rp2350",
+  "fqbn": "rp2040:rp2040:rpipico2:flash=4194304_0,arch=arm,freq=250",
+  "cpuHz": 250000000,
+  "flashBytes": "0x400000",
+  "firstAppOffset": "0x40000",
+  "appStateBytes": "0x28000",
+  "slotAlign": "0x1000",
+  "slotPadding": "0x0",
+  "apps": [
+    {
+      "id": "delay",
+      "name": "Delay",
+      "slot": 0,
+      "sketch": "Apps/Delay"
+    },
+    {
+      "id": "reverb",
+      "name": "Reverb",
+      "slot": 1,
+      "sketch": "Apps/Reverb"
+    },
+    {
+      "id": "tuner",
+      "name": "Tuner",
+      "slot": 2,
+      "sketch": "Apps/Tuner"
+    },
+    {
+      "id": "wavetable",
+      "name": "Wavetable",
+      "slot": 3,
+      "sketch": "Apps/Wavetable"
+    },
+    {
+      "id": "grain",
+      "name": "Grain",
+      "slot": 4,
+      "sketch": "Apps/Grain"
+    },
+    {
+      "id": "rings",
+      "name": "Rings",
+      "slot": 5,
+      "sketch": "Apps/Rings"
+    },
+    {
+      "id": "acid",
+      "name": "Acid",
+      "slot": 6,
+      "sketch": "Apps/Acid"
+    },
+    {
+      "id": "calibration",
+      "name": "Calibration",
+      "slot": 7,
+      "sketch": "Apps/Calibration"
+    },
+    {
+      "id": "glitch",
+      "name": "Glitch",
+      "slot": 8,
+      "sketch": "Apps/Glitch"
+    },
+    {
+      "id": "flanger",
+      "name": "Flanger",
+      "slot": 9,
+      "sketch": "Apps/Flanger"
+    },
+    {
+      "id": "ducking",
+      "name": "Ducking",
+      "slot": 10,
+      "sketch": "Apps/Ducking"
+    },
+    {
+      "id": "crush",
+      "name": "Crush",
+      "slot": 11,
+      "sketch": "Apps/Crush"
+    }
+  ]
+}

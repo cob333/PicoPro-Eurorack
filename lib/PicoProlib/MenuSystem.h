@@ -1,0 +1,6 @@
+#ifndef PICOPRO_MENU_SYSTEM_COMPAT_H_
+#define PICOPRO_MENU_SYSTEM_COMPAT_H_
+
+#include "ui/MenuSystem.h"
+
+#endif // PICOPRO_MENU_SYSTEM_COMPAT_H_
