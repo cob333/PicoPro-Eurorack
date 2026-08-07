@@ -12,7 +12,7 @@ struct menu menus[] = {
   {"repeat", 0, 1000, 10, TYPE_FLOAT, 0, &glitch_repeat, 0, updateGlitchMenu},
   {"lvl", 0, 1000, 10, TYPE_FLOAT, 0, &glitch_level, 0, updateGlitchMenu},
   {"clk", 0, 2, 1, TYPE_TEXT, glitch_clock_names, &glitch_clock, 0, updateGlitchMenu},
-  {"speed", 20, 200, 1, TYPE_INTEGER, 0, &glitch_bpm, 0, updateGlitchMenu},
+  {"bpm", 20, 200, 1, TYPE_INTEGER, 0, &glitch_bpm, 0, updateGlitchMenu},
 };
 
 #endif

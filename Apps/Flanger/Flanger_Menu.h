@@ -15,7 +15,7 @@ struct menu menus[] = {
   {"mix", 0, 1000, 10, TYPE_FLOAT, 0, &flanger_mix, 0, updateFlangerMenu},
   {"level", 0, 1000, 10, TYPE_FLOAT, 0, &flanger_level, 0, updateFlangerMenu},
   {"width", 0, 1000, 10, TYPE_FLOAT, 0, &flanger_width, 0, updateFlangerMenu},
-  {"waveform", 0, 5, 1, TYPE_TEXT, flanger_wave_names, &flanger_wave, 0, updateFlangerMenu},
+  {"wave", 0, 5, 1, TYPE_TEXT, flanger_wave_names, &flanger_wave, 0, updateFlangerMenu},
 };
 
 #endif
