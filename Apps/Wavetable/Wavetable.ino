@@ -842,7 +842,7 @@ void setup() {
   Wire.begin();
 
   alarm_in_us(TIMER_MICROS);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
 
   i2s.setDOUT(I2S_DATA);
   i2s.setBCLK(BCLK);

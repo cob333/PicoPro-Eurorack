@@ -93,7 +93,7 @@ class PicoFlanger {
 
   float ProcessLfo() {
     lfo_phase_ += lfo_increment_;
-    while (lfo_phase_ >= 1.0f) {
+    if (lfo_phase_ >= 1.0f) {
       lfo_phase_ -= 1.0f;
       random_from_ = random_to_;
       random_to_ = RandomBipolar();
@@ -236,7 +236,7 @@ void setup() {
   Wire.setSCL(PIN_WIRE_SCL);
   Wire.begin();
   alarm_in_us(TIMER_MICROS);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
 
   i2s.setDOUT(I2S_DATA);
   i2s.setDIN(I2S_DATAIN);

@@ -77,9 +77,6 @@ static bool picoCVDisplayDirty[PICOPRO_CV_MAX_MENUS];
 static uint32_t picoCVLastDisplayMs = 0;
 static PicoBootCalibration picoCVCalibration;
 static bool picoCVCalibrationLoaded = false;
-static uint16_t picoCVCachedRaw[2];
-static uint32_t picoCVCachedRawMs[2];
-static bool picoCVCachedRawReady[2];
 static uint16_t picoCVStableRaw[2];
 static bool picoCVStableRawReady[2];
 static float picoCVStableVolts[2];
@@ -314,13 +311,7 @@ static inline int16_t PicoCVClampValue(int32_t value, int16_t min_value, int16_t
 
 static inline uint16_t PicoCVReadRaw(uint8_t input) {
   input = input == 0 ? 0 : 1;
-  const uint32_t now = millis();
-  if (!picoCVCachedRawReady[input] || picoCVCachedRawMs[input] != now) {
-    picoCVCachedRaw[input] = input == 0 ? sampleCV1() : sampleCV2();
-    picoCVCachedRawMs[input] = now;
-    picoCVCachedRawReady[input] = true;
-  }
-  return picoCVCachedRaw[input];
+  return PicoCVInputReadRaw(input);
 }
 
 static inline float PicoCVRawToVolts(uint8_t input, uint16_t raw) {
@@ -357,6 +348,7 @@ static inline float PicoCVHysteresisVolts(uint8_t input) {
 
 static inline float PicoCVInputVolts(uint8_t input, float max_volts) {
   input = input == 0 ? 0 : 1;
+  if (!PicoCVInputAnalogAvailable(input)) return 0.0f;
   const uint32_t now = millis();
   if (picoCVStableReady[input] && picoCVStableMs[input] == now) {
     const float cached = picoCVStableVolts[input];
@@ -405,6 +397,7 @@ static inline float PicoCVRawToNormalized(uint16_t raw) {
 
 static inline float PicoCVNormalizedInput(uint8_t input) {
   input = input == 0 ? 0 : 1;
+  if (!PicoCVInputAnalogAvailable(input)) return 0.0f;
   const uint16_t raw = PicoCVReadRaw(input);
   if (!picoCVStableRawReady[input]) {
     picoCVStableRaw[input] = raw;
@@ -440,10 +433,11 @@ static inline float PicoCVNormalizedLfo(uint8_t index) {
   } else {
     const uint32_t elapsed_us = now - assignment->lfo_last_us;
     assignment->lfo_last_us = now;
-    assignment->lfo_phase += (float)elapsed_us * 0.000001f *
-                             assignment->lfo_frequency_hz;
-    while (assignment->lfo_phase >= 1.0f) {
-      assignment->lfo_phase -= 1.0f;
+    const float advanced_phase =
+        assignment->lfo_phase +
+        (float)elapsed_us * 0.000001f * assignment->lfo_frequency_hz;
+    assignment->lfo_phase = advanced_phase - floorf(advanced_phase);
+    if (advanced_phase >= 1.0f) {
       assignment->lfo_random_from = assignment->lfo_random_to;
       assignment->lfo_random_to = PicoCVLfoRandomBipolar(assignment);
       assignment->lfo_random_step = PicoCVLfoRandomBipolar(assignment);

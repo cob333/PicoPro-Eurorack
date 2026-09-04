@@ -187,15 +187,7 @@ static inline void PicoADSRServiceGate(PicoADSRVoice *voice, uint32_t now_ms) {
     return;
   }
 
-  const uint16_t raw = source == 1 ? sampleCV1() : sampleCV2();
-  const uint16_t value = (AD_RANGE - 1u) - raw;
-  if (voice->gate) {
-    if (value < (AD_RANGE / 3u)) {
-      voice->gate = false;
-    }
-  } else if (value > ((AD_RANGE * 2u) / 3u)) {
-    voice->gate = true;
-  }
+  voice->gate = PicoCVInputReadGate(source - 1u, voice->gate);
 }
 
 static inline int16_t PicoADSRApplyAmp(PicoADSRVoice *voice, int16_t level) {

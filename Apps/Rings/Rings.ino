@@ -196,13 +196,7 @@ static void serviceRingsControls() {
 
   bool trigger = false;
   if (rings_trigger != 0) {
-    const uint16_t raw = rings_trigger == 1 ? sampleCV1() : sampleCV2();
-    const uint16_t value = (AD_RANGE - 1u) - raw;
-    if (trigger_high) {
-      trigger = value >= (AD_RANGE / 3u);
-    } else {
-      trigger = value > ((AD_RANGE * 2u) / 3u);
-    }
+    trigger = PicoCVInputReadGate((uint8_t)(rings_trigger - 1), trigger_high);
   }
   if (trigger && !trigger_high) pico_rings::QueueTrigger();
   trigger_high = trigger;
@@ -239,7 +233,7 @@ void setup() {
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
   Wire.setSDA(PIN_WIRE_SDA);
   Wire.setSCL(PIN_WIRE_SCL);
   Wire.begin();

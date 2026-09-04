@@ -167,12 +167,12 @@ static void serviceCrushCV() {
   next.level_q16 = crushToQ16(PicoCVModulatedValue(
       3, crush_level, menus[3].min, menus[3].max));
 
-  ++crush_control_revision;
+  __atomic_add_fetch(&crush_control_revision, 1u, __ATOMIC_ACQ_REL);
   crush_controls.bits = next.bits;
   crush_controls.downsample = next.downsample;
   crush_controls.mix_q16 = next.mix_q16;
   crush_controls.level_q16 = next.level_q16;
-  ++crush_control_revision;
+  __atomic_add_fetch(&crush_control_revision, 1u, __ATOMIC_RELEASE);
 }
 
 static void prepareCrushExit() {
@@ -187,18 +187,25 @@ static int32_t crushSample(int32_t sample, uint8_t bits) {
   return sample16 * 65536;
 }
 
-static CrushControls readCrushControls() {
-  CrushControls snapshot;
-  while (true) {
-    const uint32_t before = crush_control_revision;
+static bool readCrushControls(CrushControls *snapshot) {
+  if (snapshot == nullptr) return false;
+  for (uint8_t attempt = 0; attempt < 4u; ++attempt) {
+    const uint32_t before = __atomic_load_n(&crush_control_revision,
+                                             __ATOMIC_ACQUIRE);
     if (before & 1u) continue;
-    snapshot.bits = crush_controls.bits;
-    snapshot.downsample = crush_controls.downsample;
-    snapshot.mix_q16 = crush_controls.mix_q16;
-    snapshot.level_q16 = crush_controls.level_q16;
-    const uint32_t after = crush_control_revision;
-    if (before == after && !(after & 1u)) return snapshot;
+    CrushControls candidate;
+    candidate.bits = crush_controls.bits;
+    candidate.downsample = crush_controls.downsample;
+    candidate.mix_q16 = crush_controls.mix_q16;
+    candidate.level_q16 = crush_controls.level_q16;
+    const uint32_t after = __atomic_load_n(&crush_control_revision,
+                                            __ATOMIC_ACQUIRE);
+    if (before == after && !(after & 1u)) {
+      *snapshot = candidate;
+      return true;
+    }
   }
+  return false;
 }
 
 void setup() {
@@ -209,7 +216,7 @@ void setup() {
   Wire.setSCL(PIN_WIRE_SCL);
   Wire.begin();
   alarm_in_us(TIMER_MICROS);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
 
   i2s.setDOUT(I2S_DATA);
   i2s.setDIN(I2S_DATAIN);
@@ -273,7 +280,7 @@ void loop1() {
 
   if (++control_divider >= 32) {
     control_divider = 0;
-    controls = readCrushControls();
+    (void)readCrushControls(&controls);
     if (downsample_counter >= controls.downsample) downsample_counter = 0;
   }
 

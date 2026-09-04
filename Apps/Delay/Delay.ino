@@ -248,7 +248,7 @@ void setup() {
 // set up timer interrupt 
   alarm_in_us(TIMER_MICROS);
 
-  analogReadResolution(AD_BITS); // set up for max resolution
+  PicoCVInputBegin();
 
   // give the audio library some memory.  We'll be able
   // to see how much it actually uses, which can be used

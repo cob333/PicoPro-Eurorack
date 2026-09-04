@@ -69,14 +69,15 @@ static void alarm_irq(void) {
 static uint16_t sampleAverage(uint8_t cv_index) {
   uint32_t sum = 0;
   for (uint8_t i = 0; i < CAL_SAMPLE_READS; ++i) {
-    sum += cv_index == 0 ? sampleCV1() : sampleCV2();
+    sum += PicoCVInputReadRawFresh(cv_index);
     delay(1);
   }
   return (uint16_t)((sum + (CAL_SAMPLE_READS / 2)) / CAL_SAMPLE_READS);
 }
 
 static uint16_t liveRawForStep(void) {
-  return step >= CAL_CV2_ZERO && step <= CAL_CV2_THREE ? sampleCV2() : sampleCV1();
+  return PicoCVInputReadRawFresh(
+      step >= CAL_CV2_ZERO && step <= CAL_CV2_THREE ? 1u : 0u);
 }
 
 static bool calibrationReady(void) {
@@ -253,7 +254,7 @@ void setup() {
   Wire.begin();
 
   alarm_in_us(TIMER_MICROS);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
   PicoBootLoadCalibration(&cal);
   for (uint8_t volt = 0; volt < 4; ++volt) {
     cv_counts[0][volt] = cal.cv1_zero_counts - (cal.cv1_counts_per_volt * (float)volt);

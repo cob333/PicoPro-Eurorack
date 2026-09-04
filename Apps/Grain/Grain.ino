@@ -136,30 +136,37 @@ static void alarm_in_us(uint32_t delay_us) {
 }
 
 static void publishGrainControls(const GrainControls &next) {
-  ++grain_control_revision;
+  __atomic_add_fetch(&grain_control_revision, 1u, __ATOMIC_ACQ_REL);
   grain_controls.sample = next.sample;
   grain_controls.shape = next.shape;
   grain_controls.phase_inc_q16 = next.phase_inc_q16;
   grain_controls.duration_frames = next.duration_frames;
   grain_controls.length_q10 = next.length_q10;
   grain_controls.position_q10 = next.position_q10;
-  ++grain_control_revision;
+  __atomic_add_fetch(&grain_control_revision, 1u, __ATOMIC_RELEASE);
 }
 
-static GrainControls readGrainControls() {
-  GrainControls snapshot;
-  while (true) {
-    const uint32_t before = grain_control_revision;
+static bool readGrainControls(GrainControls *snapshot) {
+  if (snapshot == nullptr) return false;
+  for (uint8_t attempt = 0; attempt < 4u; ++attempt) {
+    const uint32_t before = __atomic_load_n(&grain_control_revision,
+                                             __ATOMIC_ACQUIRE);
     if (before & 1u) continue;
-    snapshot.sample = grain_controls.sample;
-    snapshot.shape = grain_controls.shape;
-    snapshot.phase_inc_q16 = grain_controls.phase_inc_q16;
-    snapshot.duration_frames = grain_controls.duration_frames;
-    snapshot.length_q10 = grain_controls.length_q10;
-    snapshot.position_q10 = grain_controls.position_q10;
-    const uint32_t after = grain_control_revision;
-    if (before == after && !(after & 1u)) return snapshot;
+    GrainControls candidate;
+    candidate.sample = grain_controls.sample;
+    candidate.shape = grain_controls.shape;
+    candidate.phase_inc_q16 = grain_controls.phase_inc_q16;
+    candidate.duration_frames = grain_controls.duration_frames;
+    candidate.length_q10 = grain_controls.length_q10;
+    candidate.position_q10 = grain_controls.position_q10;
+    const uint32_t after = __atomic_load_n(&grain_control_revision,
+                                            __ATOMIC_ACQUIRE);
+    if (before == after && !(after & 1u)) {
+      *snapshot = candidate;
+      return true;
+    }
   }
+  return false;
 }
 
 static void serviceGrainControls() {
@@ -267,7 +274,7 @@ void setup() {
   Wire.setSCL(PIN_WIRE_SCL);
   Wire.begin();
   alarm_in_us(TIMER_MICROS);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
 
   i2s.setDOUT(I2S_DATA);
   i2s.setBCLK(BCLK);
@@ -335,7 +342,7 @@ void loop1() {
 
   if (++control_divider >= 32u) {
     control_divider = 0;
-    controls = readGrainControls();
+    (void)readGrainControls(&controls);
   }
   const PicoGrainSample &sample = PICOPRO_GRAIN_SAMPLES[controls.sample];
   if (controls.sample != last_sample) {

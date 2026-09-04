@@ -229,7 +229,7 @@ void setup() {
 // set up timer interrupt 
   alarm_in_us(TIMER_MICROS);
 
-  analogReadResolution(AD_BITS); // set up for max resolution
+  PicoCVInputBegin();
 
 // set up I2S for 32 bits in and out
 // PCM1808 is 24 bit only but I could not get 24 bit I2S working. 32 bits is little if any extra overhead

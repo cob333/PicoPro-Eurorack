@@ -311,7 +311,10 @@ static void alarm_in_us(uint32_t delay_us) {
 
 static void serviceGlitchControls() {
   static uint32_t last_ms = 0;
+  static int8_t digital_clock_input = 0;
   const uint32_t now = millis();
+  PicoCVInputSelectDigitalRole((int8_t)glitch_clock,
+                               &digital_clock_input);
   if ((now - last_ms) < 5) return;
   last_ms = now;
   active_break = PicoCVModulatedValue(0, glitch_break, 0, 1000);
@@ -324,10 +327,6 @@ static void serviceGlitchControls() {
   } else {
     active_clock_ratio = glitch_clock_ratio;
   }
-  // analogRead() switches RP2350 GPIO26/27 into ADC mode. Restore the selected
-  // clock jack after any CV modulation reads so core1 can sample short clocks.
-  if (glitch_clock == 1) pinMode(CV1IN, INPUT_PULLUP);
-  if (glitch_clock == 2) pinMode(CV2IN, INPUT_PULLUP);
 }
 
 static inline uint16_t toQ16(int16_t value) {
@@ -469,9 +468,7 @@ void setup() {
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
-  pinMode(CV1IN, INPUT_PULLUP);
-  pinMode(CV2IN, INPUT_PULLUP);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
   Wire.setSDA(PIN_WIRE_SDA);
   Wire.setSCL(PIN_WIRE_SCL);
   Wire.begin();
@@ -490,10 +487,9 @@ void setup() {
   loadGlitchState();
   syncGlitchTempoMenu();
   serviceGlitchControls();
-  randomSeed(((uint32_t)sampleCV1() << 16) ^ sampleCV2() ^ micros());
-  // randomSeed sampling above leaves both CV pins in ADC mode.
-  pinMode(CV1IN, INPUT_PULLUP);
-  pinMode(CV2IN, INPUT_PULLUP);
+  const uint32_t cv_seed =
+      ((uint32_t)PicoCVInputReadRaw(0) << 16) ^ PicoCVInputReadRaw(1);
+  randomSeed(cv_seed ^ micros());
   resetAudioState(audio_state);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) while (true) {}
@@ -557,7 +553,8 @@ void loop1() {
                               (uint32_t)constrain(active_bpm, 20, 200);
     if (audio_state.samples_since_edge >= interval) clock_edge = true;
   } else {
-    const bool raw_clock = !digitalRead(clock_mode == 1 ? CV1IN : CV2IN);
+    const bool raw_clock =
+        PicoCVInputDigitalActiveLow((uint8_t)(clock_mode - 1));
     if (raw_clock == audio_state.raw_clock_state) {
       if (audio_state.raw_clock_stable_samples < UINT32_MAX)
         ++audio_state.raw_clock_stable_samples;

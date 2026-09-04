@@ -296,18 +296,21 @@ static void alarm_in_us(uint32_t delay_us) {
 
 static void publishDuckingSettings(float attack_ms, float decay_ms,
                                    float knee, float level, int16_t trigger) {
-  ++ducking_settings.revision;
+  __atomic_add_fetch(&ducking_settings.revision, 1u, __ATOMIC_ACQ_REL);
   ducking_settings.attack_ms = attack_ms;
   ducking_settings.decay_ms = decay_ms;
   ducking_settings.knee = knee;
   ducking_settings.level = level;
   ducking_settings.trigger = trigger;
-  ++ducking_settings.revision;
+  __atomic_add_fetch(&ducking_settings.revision, 1u, __ATOMIC_RELEASE);
 }
 
 static void serviceDuckingControls() {
   static uint32_t last_ms = 0;
+  static int8_t digital_trigger_input = 0;
   const uint32_t now = millis();
+  PicoCVInputSelectDigitalRole((int8_t)ducking_trigger,
+                               &digital_trigger_input);
   if ((now - last_ms) < 5) return;
   last_ms = now;
 
@@ -322,10 +325,6 @@ static void serviceDuckingControls() {
   publishDuckingSettings((float)attack, (float)decay,
                          knee * 0.001f, level * 0.001f, ducking_trigger);
 
-  // CV modulation uses the ADC function on GPIO26/27. Return the selected
-  // trigger jack to digital mode for sample-domain edge detection on core1.
-  if (ducking_trigger == 1) pinMode(CV1IN, INPUT_PULLUP);
-  if (ducking_trigger == 2) pinMode(CV2IN, INPUT_PULLUP);
 }
 
 static void prepareDuckingExit() {
@@ -342,9 +341,7 @@ void setup() {
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
-  pinMode(CV1IN, INPUT_PULLUP);
-  pinMode(CV2IN, INPUT_PULLUP);
-  analogReadResolution(AD_BITS);
+  PicoCVInputBegin();
   Wire.setSDA(PIN_WIRE_SDA);
   Wire.setSCL(PIN_WIRE_SCL);
   Wire.begin();
@@ -362,8 +359,6 @@ void setup() {
   PicoCVBindMenus(menus, NUM_MENUS);
   loadDuckingState();
   serviceDuckingControls();
-  if (ducking_trigger == 1) pinMode(CV1IN, INPUT_PULLUP);
-  if (ducking_trigger == 2) pinMode(CV2IN, INPUT_PULLUP);
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) while (true) {}
   display.clearDisplay();
@@ -412,6 +407,11 @@ void loop1() {
   static int16_t previous_trigger = -1;
   static uint32_t applied_revision = UINT32_MAX;
   static float output_level = 0.85f;
+  static float control_attack_ms = 20.0f;
+  static float control_decay_ms = 250.0f;
+  static float control_knee = 0.5f;
+  static float control_level = 0.85f;
+  static int16_t control_trigger = 2;
   static int16_t exit_gain = 1000;
 
   const int32_t input_left_32 = i2s.read();
@@ -419,33 +419,43 @@ void loop1() {
 
   if (++trigger_divider >= DUCKING_TRIGGER_POLL_DIVIDER) {
     trigger_divider = 0;
-    uint32_t revision;
-    float attack_ms, decay_ms, knee, level;
-    int16_t trigger;
-    do {
-      revision = ducking_settings.revision;
-      while (revision & 1u) revision = ducking_settings.revision;
-      attack_ms = ducking_settings.attack_ms;
-      decay_ms = ducking_settings.decay_ms;
-      knee = ducking_settings.knee;
-      level = ducking_settings.level;
-      trigger = ducking_settings.trigger;
-    } while (revision != ducking_settings.revision);
+    uint32_t revision = applied_revision;
+    for (uint8_t attempt = 0; attempt < 4u; ++attempt) {
+      const uint32_t before = __atomic_load_n(&ducking_settings.revision,
+                                               __ATOMIC_ACQUIRE);
+      if (before & 1u) continue;
+      const float attack_ms = ducking_settings.attack_ms;
+      const float decay_ms = ducking_settings.decay_ms;
+      const float knee = ducking_settings.knee;
+      const float level = ducking_settings.level;
+      const int16_t trigger = ducking_settings.trigger;
+      const uint32_t after = __atomic_load_n(&ducking_settings.revision,
+                                              __ATOMIC_ACQUIRE);
+      if (before != after || (after & 1u)) continue;
+      control_attack_ms = attack_ms;
+      control_decay_ms = decay_ms;
+      control_knee = knee;
+      control_level = level;
+      control_trigger = trigger;
+      revision = after;
+      break;
+    }
 
     if (revision != applied_revision) {
-      ducker.SetAttackMs(attack_ms);
-      ducker.SetDecayMs(decay_ms);
-      ducker.SetCurve(knee);
+      ducker.SetAttackMs(control_attack_ms);
+      ducker.SetDecayMs(control_decay_ms);
+      ducker.SetCurve(control_knee);
       applied_revision = revision;
     }
-    output_level += (level - output_level) * 0.1f;
+    output_level += (control_level - output_level) * 0.1f;
 
-    if (trigger != previous_trigger) {
+    if (control_trigger != previous_trigger) {
       trigger_state = false;
-      previous_trigger = trigger;
+      previous_trigger = control_trigger;
     }
-    if (trigger != 0) {
-      const bool raw_trigger = !digitalRead(trigger == 1 ? CV1IN : CV2IN);
+    if (control_trigger != 0) {
+      const bool raw_trigger =
+          PicoCVInputDigitalActiveLow((uint8_t)(control_trigger - 1));
       if (raw_trigger && !trigger_state) ducker.Trigger();
       trigger_state = raw_trigger;
     } else {
@@ -460,10 +470,15 @@ void loop1() {
     __atomic_store_n(&ducking_meter_current_q15, duck_q15, __ATOMIC_RELAXED);
     uint16_t previous_peak = __atomic_load_n(&ducking_meter_peak_q15,
                                               __ATOMIC_RELAXED);
-    while (duck_q15 > previous_peak &&
-           !__atomic_compare_exchange_n(&ducking_meter_peak_q15, &previous_peak,
-                                        duck_q15, false, __ATOMIC_RELEASE,
-                                        __ATOMIC_RELAXED)) {}
+    for (uint8_t attempt = 0;
+         attempt < 4u && duck_q15 > previous_peak;
+         ++attempt) {
+      if (__atomic_compare_exchange_n(&ducking_meter_peak_q15, &previous_peak,
+                                      duck_q15, false, __ATOMIC_RELEASE,
+                                      __ATOMIC_RELAXED)) {
+        break;
+      }
+    }
   }
   if (exit_gain > ducking_exit_gain) --exit_gain;
   const float total_gain = gain * output_level * exit_gain * 0.001f;
