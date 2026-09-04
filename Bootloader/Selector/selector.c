@@ -290,6 +290,10 @@ int main(void) {
   uint8_t count = valid_app_count(&cfg);
   if (count == 0) count = 1;
   uint8_t selected = cfg.active_app < count ? cfg.active_app : 0;
+  if (!returned_from_app && slot_has_app(&cfg, selected)) {
+    jump_to_app(&cfg.apps[selected]);
+  }
+
   uint8_t selector_frame = 0;
   const PicoProSelectorIcon *selected_icon = app_icon(selected);
   uint8_t selected_frame_count = selected_icon != NULL ? selected_icon->frame_count : 0;
