@@ -14,8 +14,9 @@ static const char *const PICOPRO_SELECTOR_APP_NAMES[] = {
   "Flanger",
   "Ducking",
   "Crush",
+  "Slicer",
 };
 
-#define PICOPRO_SELECTOR_APP_NAME_COUNT 12u
+#define PICOPRO_SELECTOR_APP_NAME_COUNT 13u
 
 #endif // PICOPRO_SELECTOR_APPS_H_

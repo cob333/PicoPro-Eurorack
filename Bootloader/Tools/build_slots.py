@@ -156,8 +156,8 @@ def image_to_oled_frame(path: Path, *, width: int = 64, height: int = 32) -> lis
     for x in range(width):
       byte = 0
       for bit in range(8):
-        _r, _g, _b, alpha = image.getpixel((x, page * 8 + bit))
-        if alpha >= 128:
+        red, green, blue, alpha = image.getpixel((x, page * 8 + bit))
+        if red == 0 and green == 0 and blue == 0 and alpha >= 128:
           byte |= 1 << bit
       frame.append(byte)
   return frame

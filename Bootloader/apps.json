@@ -79,6 +79,12 @@
       "name": "Crush",
       "slot": 11,
       "sketch": "Apps/Crush"
+    },
+    {
+      "id": "slicer",
+      "name": "Slicer",
+      "slot": 12,
+      "sketch": "Apps/Slicer"
     }
   ]
 }
