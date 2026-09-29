@@ -1,0 +1,9 @@
+# Python 3.10 or newer is required by the build scripts.
+# Non-Python build requirements: Arduino IDE 2.x/arduino-cli,
+# Arduino-Pico 5.5.0, CMake >= 3.13, Ninja, and the Pico SDK.
+# Target: RP2350/Pico 2, 4 MB flash, 250 MHz.
+# Required Arduino libraries: Adafruit GFX Library, Adafruit SSD1306,
+# pico-audio, DaisySP_Teensy, RINGS, and STMLIB.
+
+# Converts the selector's RGBA PNG animation frames to OLED bitmaps.
+Pillow>=10.0,<13.0
