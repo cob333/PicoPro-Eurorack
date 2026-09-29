@@ -21,19 +21,18 @@
 #define PICOPRO_CV_LFO_FREQ_STEPS 64u
 #define PICOPRO_CV_LFO_DEFAULT_FREQ_CODE 24u
 #define PICOPRO_CV_ZERO_DEADBAND_VOLTS 0.015f
-#ifndef PICOPRO_CV_RAW_NEGATIVE_FULL_SCALE
-#define PICOPRO_CV_RAW_NEGATIVE_FULL_SCALE 4068u
+#ifndef PICOPRO_CV_NEGATIVE_FULL_SCALE_VOLTS
+#define PICOPRO_CV_NEGATIVE_FULL_SCALE_VOLTS 1.4f
 #endif
-#ifndef PICOPRO_CV_RAW_ZERO
-#define PICOPRO_CV_RAW_ZERO 3248u
-#endif
-#ifndef PICOPRO_CV_RAW_POSITIVE_FULL_SCALE
-#define PICOPRO_CV_RAW_POSITIVE_FULL_SCALE 330u
+#ifndef PICOPRO_CV_POSITIVE_FULL_SCALE_VOLTS
+#define PICOPRO_CV_POSITIVE_FULL_SCALE_VOLTS 5.0f
 #endif
 // Measured converter jitter is about one count. Holding across two counts
 // rejects that noise with one count of margin while preserving V/oct detail.
 // The voltage threshold is derived from each input's calibration below.
 #define PICOPRO_CV_HYSTERESIS_COUNTS 2.0f
+#define PICOPRO_CV_FILTER_TIME_MS 8.0f
+#define PICOPRO_CV_FILTER_SNAP_COUNTS 32.0f
 
 enum PicoCVUiState {
   PICOPRO_CV_UI_OFF = 0,
@@ -77,9 +76,8 @@ static bool picoCVDisplayDirty[PICOPRO_CV_MAX_MENUS];
 static uint32_t picoCVLastDisplayMs = 0;
 static PicoBootCalibration picoCVCalibration;
 static bool picoCVCalibrationLoaded = false;
-static uint16_t picoCVStableRaw[2];
-static bool picoCVStableRawReady[2];
 static float picoCVStableVolts[2];
+static float picoCVFilteredRaw[2];
 static uint32_t picoCVStableMs[2];
 static bool picoCVStableReady[2];
 static bool picoCVAssignmentsInitialized = false;
@@ -87,6 +85,8 @@ static bool picoCVAssignmentsInitialized = false;
 static const char *picoCVLfoWaveNames[PICOPRO_CV_LFO_WAVE_COUNT] = {
   "sin", "saw", "tri", "sqr", "rnd", "step"
 };
+
+static inline bool PicoCVIndexIsFrequency(uint8_t index);
 
 static inline uint8_t PicoCVClampIndex(uint8_t index) {
   return index < PICOPRO_CV_MAX_MENUS ? index : (PICOPRO_CV_MAX_MENUS - 1);
@@ -116,6 +116,15 @@ static inline void PicoCVBindMenus(const menu *menus, uint8_t count) {
                                                ((uint32_t)i * 0x9e3779b9u);
     }
     picoCVAssignmentsInitialized = true;
+  }
+  // V/oct is a capability of frequency parameters, not a generic amount.
+  // Sanitize persisted/legacy state after menu metadata becomes available.
+  for (uint8_t i = 0; i < picoCVMenuCount; ++i) {
+    if (picoCVAssignments[i].amount == PICOPRO_CV_VOCT_AMOUNT &&
+        !PicoCVIndexIsFrequency(i)) {
+      picoCVAssignments[i].amount = 0;
+      picoCVAssignments[i].baseline_ready = false;
+    }
   }
 }
 
@@ -172,8 +181,7 @@ static inline void PicoCVImportState(const PicoCVPersistentState *state) {
         assignment->amount = 10;
       }
     }
-    // Re-acquire the baseline from the live input on first use. Persisting an
-    // old voltage would make parameters jump when a different cable is used.
+    // V/oct is absolute: zero volts always maps to the parameter's base value.
     assignment->baseline_volts = 0.0f;
     assignment->baseline_ready = false;
     assignment->lfo_phase = 0.0f;
@@ -356,20 +364,26 @@ static inline float PicoCVInputVolts(uint8_t input, float max_volts) {
     return cached < -max_volts ? -max_volts : cached;
   }
 
-  const float target = PicoCVRawToVolts(input, PicoCVReadRaw(input));
+  const float raw = (float)PicoCVReadRaw(input);
   if (!picoCVStableReady[input]) {
-    picoCVStableVolts[input] = target;
+    picoCVFilteredRaw[input] = raw;
     picoCVStableReady[input] = true;
   } else {
-    const float diff = target - picoCVStableVolts[input];
+    const float diff = raw - picoCVFilteredRaw[input];
     const float abs_diff = diff < 0.0f ? -diff : diff;
-    if (abs_diff > PicoCVHysteresisVolts(input)) {
-      // Deliberately snap instead of interpolating: a keyboard/sequencer step
-      // reaches its new pitch on this CV service tick without portamento.
-      picoCVStableVolts[input] = target;
+    if (abs_diff > PICOPRO_CV_FILTER_SNAP_COUNTS) {
+      // Large keyboard/sequencer steps must not turn into portamento.
+      picoCVFilteredRaw[input] = raw;
+    } else if (abs_diff > PICOPRO_CV_HYSTERESIS_COUNTS) {
+      const uint32_t elapsed_ms = now - picoCVStableMs[input];
+      const float dt = elapsed_ms == 0u ? 1.0f : (float)elapsed_ms;
+      const float alpha = dt / (PICOPRO_CV_FILTER_TIME_MS + dt);
+      picoCVFilteredRaw[input] += diff * alpha;
     }
   }
 
+  picoCVStableVolts[input] =
+      PicoCVRawToVolts(input, (uint16_t)(picoCVFilteredRaw[input] + 0.5f));
   picoCVStableMs[input] = now;
   if (picoCVStableVolts[input] > max_volts) return max_volts;
   return picoCVStableVolts[input] < -max_volts
@@ -382,34 +396,19 @@ static inline float PicoCVApplyVoctDeadband(uint8_t input, float delta) {
   return delta > -threshold && delta < threshold ? 0.0f : delta;
 }
 
-static inline float PicoCVRawToNormalized(uint16_t raw) {
-  const int32_t zero = PICOPRO_CV_RAW_ZERO;
-  const int32_t value = raw;
-  if (value >= zero) {
-    const int32_t span = (int32_t)PICOPRO_CV_RAW_NEGATIVE_FULL_SCALE - zero;
-    if (span <= 0 || value >= (int32_t)PICOPRO_CV_RAW_NEGATIVE_FULL_SCALE) return -1.0f;
-    return -(float)(value - zero) / (float)span;
+static inline float PicoCVVoltsToNormalized(float volts) {
+  if (volts < 0.0f) {
+    const float normalized = volts / PICOPRO_CV_NEGATIVE_FULL_SCALE_VOLTS;
+    return normalized < -1.0f ? -1.0f : normalized;
   }
-  const int32_t span = zero - (int32_t)PICOPRO_CV_RAW_POSITIVE_FULL_SCALE;
-  if (span <= 0 || value <= (int32_t)PICOPRO_CV_RAW_POSITIVE_FULL_SCALE) return 1.0f;
-  return (float)(zero - value) / (float)span;
+  const float normalized = volts / PICOPRO_CV_POSITIVE_FULL_SCALE_VOLTS;
+  return normalized > 1.0f ? 1.0f : normalized;
 }
 
 static inline float PicoCVNormalizedInput(uint8_t input) {
   input = input == 0 ? 0 : 1;
   if (!PicoCVInputAnalogAvailable(input)) return 0.0f;
-  const uint16_t raw = PicoCVReadRaw(input);
-  if (!picoCVStableRawReady[input]) {
-    picoCVStableRaw[input] = raw;
-    picoCVStableRawReady[input] = true;
-  } else {
-    const int32_t diff = (int32_t)raw - (int32_t)picoCVStableRaw[input];
-    if (diff > (int32_t)PICOPRO_CV_HYSTERESIS_COUNTS ||
-        diff < -(int32_t)PICOPRO_CV_HYSTERESIS_COUNTS) {
-      picoCVStableRaw[input] = raw;
-    }
-  }
-  return PicoCVRawToNormalized(picoCVStableRaw[input]);
+  return PicoCVVoltsToNormalized(PicoCVInputVolts(input, 8.0f));
 }
 
 static inline float PicoCVLfoRandomBipolar(PicoCVAssignment *assignment) {
@@ -477,10 +476,8 @@ static inline void PicoCVCommitAssignment(uint8_t index, uint8_t input, int8_t a
   PicoCVAssignment *assignment = &picoCVAssignments[index];
   assignment->input = input;
   assignment->amount = amount;
-  const bool voct = amount == PICOPRO_CV_VOCT_AMOUNT &&
-                    input != PICOPRO_CV_INPUT_LFO;
-  assignment->baseline_volts = voct ? PicoCVInputVolts(input, 8.0f) : 0.0f;
-  assignment->baseline_ready = voct;
+  assignment->baseline_volts = 0.0f;
+  assignment->baseline_ready = false;
   if (input == PICOPRO_CV_INPUT_LFO) {
     assignment->lfo_frequency_hz =
         PicoCVLfoFrequencyHz(assignment->lfo_freq_code);
@@ -496,14 +493,7 @@ static inline int16_t PicoCVVoctValue(uint8_t index,
                                       int16_t min_value,
                                       int16_t max_value) {
   const float volts = PicoCVInputVolts(input, 8.0f);
-  PicoCVAssignment *assignment = &picoCVAssignments[PicoCVClampIndex(index)];
-  if (!assignment->baseline_ready) {
-    assignment->baseline_volts = volts;
-    assignment->baseline_ready = true;
-    return base;
-  }
-  const float baseline = assignment->baseline_volts;
-  const float delta_volts = PicoCVApplyVoctDeadband(input, volts - baseline);
+  const float delta_volts = PicoCVApplyVoctDeadband(input, volts);
   if (delta_volts == 0.0f) {
     return base;
   }
@@ -525,22 +515,19 @@ static inline float PicoCVModulatedFrequencyHz(uint8_t index,
 
   if (amount != 0 &&
       (amount != PICOPRO_CV_VOCT_AMOUNT || !PicoCVIndexIsFrequency(index))) {
-    const float range = max_hz - min_hz;
-    const float normalized = PicoCVNormalizedModulation(index);
-    frequency += normalized * (float)amount * range / 10.0f;
+    const float drive = PicoCVNormalizedModulation(index) *
+                        (float)amount / 10.0f;
+    if (drive > 0.0f && base_hz > 0.0f && max_hz > base_hz) {
+      frequency = base_hz * powf(max_hz / base_hz, drive);
+    } else if (drive < 0.0f && min_hz > 0.0f && base_hz > min_hz) {
+      frequency = base_hz * powf(base_hz / min_hz, drive);
+    }
   } else if (amount == PICOPRO_CV_VOCT_AMOUNT) {
     const uint8_t input = picoCVAssignments[index].input;
     const float volts = PicoCVInputVolts(input, 8.0f);
-    PicoCVAssignment *assignment = &picoCVAssignments[index];
-    if (!assignment->baseline_ready) {
-      assignment->baseline_volts = volts;
-      assignment->baseline_ready = true;
-    } else {
-      const float delta_volts =
-          PicoCVApplyVoctDeadband(input, volts - assignment->baseline_volts);
-      if (delta_volts != 0.0f) {
-        frequency = base_hz * powf(2.0f, delta_volts);
-      }
+    const float delta_volts = PicoCVApplyVoctDeadband(input, volts);
+    if (delta_volts != 0.0f) {
+      frequency = base_hz * powf(2.0f, delta_volts);
     }
   }
 
@@ -566,9 +553,12 @@ static inline int16_t PicoCVModulatedValue(uint8_t index, int16_t base, int16_t 
     return value;
   }
 
-  const int32_t range = (int32_t)max_value - min_value;
   const float normalized = PicoCVNormalizedModulation(index);
-  const float scaled_delta = normalized * (float)amount * (float)range / 10.0f;
+  const float drive = normalized * (float)amount / 10.0f;
+  const float available = drive >= 0.0f
+                              ? (float)((int32_t)max_value - base)
+                              : (float)((int32_t)base - min_value);
+  const float scaled_delta = drive * available;
   const int32_t delta = (int32_t)(scaled_delta >= 0.0f ? scaled_delta + 0.5f : scaled_delta - 0.5f);
   const int16_t value = PicoCVClampValue((int32_t)base + delta, min_value, max_value);
   PicoCVStoreDisplayValue(index, value, true);

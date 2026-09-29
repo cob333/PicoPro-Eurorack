@@ -110,6 +110,18 @@ static void fitCalibration(uint8_t cv, float *zero_counts, float *counts_per_vol
   *counts_per_volt = cpv;
 }
 
+static bool calibrationPointsValid(uint8_t cv, float zero, float cpv) {
+  for (uint8_t volt = 1; volt < 4; ++volt) {
+    if (cv_counts[cv][volt] >= cv_counts[cv][volt - 1]) return false;
+  }
+  for (uint8_t volt = 0; volt < 4; ++volt) {
+    const float expected = zero - cpv * (float)volt;
+    const float error = fabsf((float)cv_counts[cv][volt] - expected);
+    if (error > 40.0f) return false;
+  }
+  return true;
+}
+
 static void copyStatus(const char *text) {
   uint8_t i = 0;
   while (text[i] != 0 && i < sizeof(status_text) - 1) {
@@ -236,6 +248,15 @@ static void saveCalibration(void) {
 
   fitCalibration(0, &cal.cv1_zero_counts, &cal.cv1_counts_per_volt);
   fitCalibration(1, &cal.cv2_zero_counts, &cal.cv2_counts_per_volt);
+
+  if (!PicoBootCVCalibrationValid(&cal) ||
+      !calibrationPointsValid(0, cal.cv1_zero_counts,
+                              cal.cv1_counts_per_volt) ||
+      !calibrationPointsValid(1, cal.cv2_zero_counts,
+                              cal.cv2_counts_per_volt)) {
+    copyStatus("invalid cal");
+    return;
+  }
 
   if (PicoBootSaveCalibration(&cal)) {
     copyStatus("saved");

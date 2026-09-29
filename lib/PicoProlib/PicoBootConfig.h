@@ -11,6 +11,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <string.h>
+#include <math.h>
 
 #include <Arduino.h>
 #include "hardware/flash.h"
@@ -104,6 +105,23 @@ static inline void PicoBootCalibrationDefaults(PicoBootCalibration *cal) {
   cal->cvout_zero_counts = 0.0f;
 }
 
+static inline int PicoBootCVCalibrationValid(const PicoBootCalibration *cal) {
+  if (cal == NULL) return 0;
+  if (!isfinite(cal->cv1_counts_per_volt) ||
+      !isfinite(cal->cv2_counts_per_volt) ||
+      !isfinite(cal->cv1_zero_counts) || !isfinite(cal->cv2_zero_counts)) {
+    return 0;
+  }
+  if (cal->cv1_counts_per_volt < 100.0f ||
+      cal->cv1_counts_per_volt > 1200.0f ||
+      cal->cv2_counts_per_volt < 100.0f ||
+      cal->cv2_counts_per_volt > 1200.0f) {
+    return 0;
+  }
+  return cal->cv1_zero_counts >= 0.0f && cal->cv1_zero_counts <= 4095.0f &&
+         cal->cv2_zero_counts >= 0.0f && cal->cv2_zero_counts <= 4095.0f;
+}
+
 static inline int PicoBootLoadConfig(PicoBootConfig *out) {
   const PicoBootConfig *a = PicoBootConfigAt(PICO_BOOT_CONFIG_A_OFFSET);
   const PicoBootConfig *b = PicoBootConfigAt(PICO_BOOT_CONFIG_B_OFFSET);
@@ -128,6 +146,10 @@ static inline int PicoBootLoadCalibration(PicoBootCalibration *out) {
   PicoBootConfig cfg;
   const int loaded = PicoBootLoadConfig(&cfg);
   *out = cfg.calibration;
+  if (!PicoBootCVCalibrationValid(out)) {
+    PicoBootCalibrationDefaults(out);
+    return 0;
+  }
   return loaded;
 }
 
@@ -177,7 +199,7 @@ static inline int PicoBootSaveConfig(PicoBootConfig *cfg) {
 }
 
 static inline int PicoBootSaveCalibration(const PicoBootCalibration *cal) {
-  if (cal == NULL) return 0;
+  if (!PicoBootCVCalibrationValid(cal)) return 0;
   PicoBootConfig cfg;
   if (!PicoBootLoadConfig(&cfg)) return 0;
   cfg.calibration = *cal;
