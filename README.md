@@ -204,5 +204,6 @@ The scripts generate the converted `.h` files. Do not edit those files by hand.
 - [Emilie Gillet / Mutable Instruments](https://github.com/pichenettes/eurorack): original Rings and STMLIB code
 - [Mark Washeim](https://github.com/poetaster/arduinoMI): Mutable Instruments Arduino ports
 - [Adafruit](https://github.com/adafruit): Adafruit GFX and SSD1306 libraries
+- [Robin Schmidt](https://github.com/RobinSchmidt/Open303): Open303 engine used in the Acid app
 
 Upstream projects retain their original copyrights and licenses. Check the license terms of all libraries before distributing the firmware or source code.

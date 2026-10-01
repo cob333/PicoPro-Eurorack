@@ -204,5 +204,6 @@ python3 Tools/import_wavetables.py --help
 - [Emilie Gillet / Mutable Instruments](https://github.com/pichenettes/eurorack)：Rings 和 STMLIB 原始代码
 - [Mark Washeim](https://github.com/poetaster/arduinoMI)：Mutable Instruments Arduino 移植
 - [Adafruit](https://github.com/adafruit)：Adafruit GFX 和 SSD1306 库
+- [Robin Schmidt](https://github.com/RobinSchmidt/Open303)：在Acid应用中使用的Open303引擎
 
 各上游项目保留其原有版权与许可证。发布固件或源码前，请同时检查所使用库的许可证要求。
