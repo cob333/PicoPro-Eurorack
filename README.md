@@ -47,12 +47,13 @@ Apps and slot assignments are defined in [`Bootloader/apps.json`](Bootloader/app
 | 3 | Wavetable | Available |
 | 4 | Grain | Available |
 | 5 | Rings | Available |
-| 6 | Acid | Coming soon |
+| 6 | Acid | Available |
 | 7 | Calibration | Available |
 | 8 | Glitch | Available |
 | 9 | Flanger | Available |
 | 10 | Ducking | Available |
 | 11 | Crush | Available |
+| 12 | Slicer | Coming soon |
 
 Tuner and Acid currently display `coming soon`. Reverb uses about 78% of global RAM, so it needs extra stability testing on hardware.
 

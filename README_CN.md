@@ -47,12 +47,13 @@ PicoPro Eurorack 是一套基于4HPico DSP的二次开发模块，面向 RP2350 
 | 3 | Wavetable | 可用 |
 | 4 | Grain | 可用 |
 | 5 | Rings | 可用 |
-| 6 | Acid | 敬请期待 |
+| 6 | Acid | 可用 |
 | 7 | Calibration | 可用 |
 | 8 | Glitch | 可用 |
 | 9 | Flanger | 可用 |
 | 10 | Ducking | 可用 |
 | 11 | Crush | 可用 |
+| 12 | Slicer | 敬请期待 |
 
 Tuner 和 Acid 目前只显示 `coming soon`。Reverb 的全局 RAM 占用约为 78%，上机后需要重点测试稳定性。
 
