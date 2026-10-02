@@ -9,7 +9,7 @@ static const char *const PICOPRO_SELECTOR_APP_NAMES[] = {
   "Grain",
   "Rings",
   "Acid",
-  "Calibration",
+  "Settings",
   "Glitch",
   "Flanger",
   "Ducking",

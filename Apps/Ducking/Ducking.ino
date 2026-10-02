@@ -338,6 +338,8 @@ static int32_t duckingFloatToI2S(float value) {
 }
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
@@ -414,8 +416,9 @@ void loop1() {
   static int16_t control_trigger = 2;
   static int16_t exit_gain = 1000;
 
-  const int32_t input_left_32 = i2s.read();
-  const int32_t input_right_32 = i2s.read();
+  int32_t input_left_32 = i2s.read();
+  int32_t input_right_32 = i2s.read();
+  PicoProRouteAudioInput(input_left_32, input_right_32);
 
   if (++trigger_divider >= DUCKING_TRIGGER_POLL_DIVIDER) {
     trigger_divider = 0;

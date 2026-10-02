@@ -465,6 +465,8 @@ static void prepareGlitchExit() {
 }
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
@@ -533,8 +535,9 @@ void setup1() {
 
 void loop1() {
   static int16_t exit_gain = 1000;
-  const int32_t input_left_32 = i2s.read();
-  const int32_t input_right_32 = i2s.read();
+  int32_t input_left_32 = i2s.read();
+  int32_t input_right_32 = i2s.read();
+  PicoProRouteAudioInput(input_left_32, input_right_32);
   StereoFrame input = {(int16_t)(input_left_32 >> 16),
                        (int16_t)(input_right_32 >> 16)};
 

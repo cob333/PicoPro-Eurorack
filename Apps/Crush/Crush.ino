@@ -209,6 +209,8 @@ static bool readCrushControls(CrushControls *snapshot) {
 }
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
@@ -284,8 +286,9 @@ void loop1() {
     if (downsample_counter >= controls.downsample) downsample_counter = 0;
   }
 
-  const int32_t dry_left = i2s.read();
-  const int32_t dry_right = i2s.read();
+  int32_t dry_left = i2s.read();
+  int32_t dry_right = i2s.read();
+  PicoProRouteAudioInput(dry_left, dry_right);
   if (downsample_counter == 0) {
     held_left = crushSample(dry_left, controls.bits);
     held_right = crushSample(dry_right, controls.bits);

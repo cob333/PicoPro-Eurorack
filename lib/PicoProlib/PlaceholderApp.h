@@ -12,6 +12,7 @@ static Adafruit_SSD1306 placeholder_display(
     SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 static inline void PicoProPlaceholderSetup(const char *name) {
+  PicoProSystemSettingsBegin();
   (void)name;
   pinMode(ENCSW_IN, INPUT_PULLUP);
   Wire.setSDA(PIN_WIRE_SDA);
@@ -23,6 +24,7 @@ static inline void PicoProPlaceholderSetup(const char *name) {
   }
 
   placeholder_display.clearDisplay();
+  PicoProApplyDisplayRotation(placeholder_display);
   placeholder_display.setTextColor(SSD1306_WHITE);
   placeholder_display.setTextSize(1);
   placeholder_display.setCursor(14, 8);

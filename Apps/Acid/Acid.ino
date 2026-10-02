@@ -53,6 +53,8 @@ static void prepareAcidExit() {
 }
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);

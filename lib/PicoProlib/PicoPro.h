@@ -36,6 +36,7 @@
 #include "ClickButton.h"
 #include "CVPersistence.h"
 #include "PicoBootConfig.h"
+#include "PicoSystemRuntime.h"
 #include "scales.h"
 
 // constants for integer to float and float to integer conversion

@@ -51,10 +51,10 @@
       "sketch": "Apps/Acid"
     },
     {
-      "id": "calibration",
-      "name": "Calibration",
+      "id": "settings",
+      "name": "Settings",
       "slot": 7,
-      "sketch": "Apps/Calibration"
+      "sketch": "Apps/Settings"
     },
     {
       "id": "glitch",

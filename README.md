@@ -33,7 +33,7 @@ Original project: [4HPico DSP Eurorack Module](https://github.com/rheslip/4HPico
 - Stereo audio, CV, Gate, OLED, and rotary encoder support
 - Dynamic Flash slots sized for each app
 - Browser simulator for menus, icons, and fonts
-- Flexible external CV routing and per-parameter internal LFO modulation
+- Flexible external CV routing and internal LFO modulation
 
 ## Apps
 
@@ -48,40 +48,19 @@ Apps and slot assignments are defined in [`Bootloader/apps.json`](Bootloader/app
 | 4 | Grain | Available |
 | 5 | Rings | Available |
 | 6 | Acid | Available |
-| 7 | Calibration | Available |
-| 8 | Glitch | Available |
-| 9 | Flanger | Available |
-| 10 | Ducking | Available |
-| 11 | Crush | Available |
-| 12 | Slicer | Coming soon |
+| 7 | Glitch | Available |
+| 8 | Flanger | Available |
+| 9 | Ducking | Available |
+| 10 | Crush | Available |
+| 11 | Slicer | Coming soon |
 
-### Tuner
+## Settings
 
-The single-page tuner detects the left audio input (A4=440 Hz, target range
-32–2000 Hz). Both original stereo channels pass through to the audio outputs;
-DC removal and filtering apply only to pitch detection. Detection uses a
-4096-sample window at 22.05 kHz, published every 1024 samples (46.4 ms, about
-21.53 results/second when analysis keeps up). OLED updates remain limited to
-one per 80 ms. The initial window still needs 185.8 ms to fill.
-
-Capture uses a 16,384-byte history ring and three 16,384-byte snapshots.
-Reader-owned snapshots are never overwritten; analysis overruns drop windows.
-Actual detection timing and glitch-free passthrough require hardware validation.
-The YIN search stops at its first qualifying local minimum and reuses the raw
-differences for interpolation, without storing a complete CMND table. Worst-case
-search remains bounded to 692 lags. Inversion commands are sent only when the
-zero-cent highlight changes state.
-
-Host regression tests:
-
-```sh
-clang++ -std=c++11 -O2 Apps/Tuner/tests/pitch_test.cpp Apps/Tuner/TunerDetector.cpp -o /tmp/picopro-tuner-pitch-test
-/tmp/picopro-tuner-pitch-test
-clang++ -std=c++11 -O2 -IApps/Tuner/tests/stubs Apps/Tuner/tests/capture_test.cpp Apps/Tuner/TunerAudio.cpp -o /tmp/picopro-tuner-capture-test
-/tmp/picopro-tuner-capture-test
-clang++ -std=c++11 -O2 -IApps/Tuner/tests/stubs Apps/Tuner/tests/ui_test.cpp Apps/Tuner/TunerUI.cpp -o /tmp/picopro-tuner-ui-test
-/tmp/picopro-tuner-ui-test
-```
+- `routing`: `stereo` keeps the left and right inputs separate; `mono*2` feeds
+  `(L+R)/2` to both DSP input paths and dry paths. Averaging avoids overflow from
+  direct summation. Output-only synthesizers are unaffected.
+- `rotation`: `normal` is the default; `reverse` rotates the screen by 180 degrees.
+- `calibration`: calibrates using four input voltage levels from 0 to 3 V.
 
 ## Internal routing
 

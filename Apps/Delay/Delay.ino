@@ -97,6 +97,13 @@ static void alarm_irq(void) {
 
 AudioInputI2S            i2s1;           //xy=155,100
 AudioOutputI2S           i2s2;           //xy=1132,85
+// Fixed-pool input routing ahead of both wet and dry branches.
+AudioMixer4             routedInputL;
+AudioMixer4             routedInputR;
+AudioConnection routeLL(i2s1, 0, routedInputL, 0);
+AudioConnection routeRL(i2s1, 1, routedInputL, 1);
+AudioConnection routeLR(i2s1, 0, routedInputR, 0);
+AudioConnection routeRR(i2s1, 1, routedInputR, 1);
 
 AudioEffectDelay         delay1;         //xy=500,266
 AudioMixer4              mixer1;         //xy=500,84
@@ -104,9 +111,9 @@ AudioEffectDelay         delay2;         //xy=500,266
 AudioMixer4              mixer2;         //xy=500,84
 AudioMixer4              mixeroutL;         //xy=500,84
 AudioMixer4              mixeroutR;         //xy=500,84
-AudioConnection     patchCord1(i2s1, 0, mixer1, 0);
+AudioConnection     patchCord1(routedInputL, 0, mixer1, 0);
 AudioConnection     patchCord2(mixer1, delay1);
-AudioConnection     patchCord3(i2s1, 1, mixer2, 0);
+AudioConnection     patchCord3(routedInputR, 0, mixer2, 0);
 AudioConnection     patchCord4(mixer2, delay2);
 AudioConnection     patchCord6(delay1, 0, mixer1, 1); // delay feedback
 AudioConnection     patchCord7(delay2, 0, mixer2, 1); // delay feedback
@@ -114,8 +121,8 @@ AudioConnection     patchCord8(delay1, 0, mixer2, 2); // cross feedback
 AudioConnection     patchCord9(delay2, 0, mixer1, 2); // cross feedback
 AudioConnection     patchCord10(mixer1, 0, mixeroutL, 1);
 AudioConnection     patchCord11(mixer2, 0, mixeroutR, 1);
-AudioConnection     patchCord12(i2s1, 0, mixeroutL, 0);  // dry signal output mixer
-AudioConnection     patchCord13(i2s1, 1, mixeroutR, 0);
+AudioConnection     patchCord12(routedInputL, 0, mixeroutL, 0);  // dry signal output mixer
+AudioConnection     patchCord13(routedInputR, 0, mixeroutR, 0);
 AudioConnection     patchCord14(mixeroutL, 0, i2s2, 0);
 AudioConnection     patchCord15(mixeroutR, 0, i2s2, 1);
 
@@ -233,6 +240,8 @@ void serviceDelayCV() {
 }
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
 
   Serial.begin(115200);
 // init IO ports
@@ -254,6 +263,13 @@ void setup() {
   // to see how much it actually uses, which can be used
   // to reduce this to the minimum necessary.
   AudioMemory(1000);  // determined by watching the audio stats when delay is at max
+  const bool mono = PicoProMonoInputEnabled();
+  routedInputL.gain(0, mono ? 0.5f : 1.0f);
+  routedInputL.gain(1, mono ? 0.5f : 0.0f);
+  routedInputR.gain(0, mono ? 0.5f : 0.0f);
+  routedInputR.gain(1, mono ? 0.5f : 1.0f);
+  routedInputL.gain(2, 0); routedInputL.gain(3, 0);
+  routedInputR.gain(2, 0); routedInputR.gain(3, 0);
   PicoCVBindMenus(menus, NUM_MENUS);
   loadDelayState();
   updatepatch(0,0); // set initial values

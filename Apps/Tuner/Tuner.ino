@@ -12,6 +12,8 @@ static TunerUI ui(display);
 static bool ready = false;
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   pinMode(ENCSW_IN, INPUT_PULLUP);
   Wire.setSDA(PIN_WIRE_SDA);
   Wire.setSCL(PIN_WIRE_SCL);

@@ -229,6 +229,8 @@ static int32_t FloatToI2S(float value) {
 }
 
 void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   pinMode(ENCA_IN, INPUT_PULLUP);
   pinMode(ENCB_IN, INPUT_PULLUP);
   pinMode(ENCSW_IN, INPUT_PULLUP);
@@ -323,8 +325,11 @@ void loop1() {
     last_wave = wave;
   }
 
-  const float input_left = i2s.read() * DIV_16;
-  const float input_right = i2s.read() * DIV_16;
+  int32_t routed_left = i2s.read();
+  int32_t routed_right = i2s.read();
+  PicoProRouteAudioInput(routed_left, routed_right);
+  const float input_left = routed_left * DIV_16;
+  const float input_right = routed_right * DIV_16;
   const float wet_left = flanger_left.Process(input_left);
   const float wet_right = flanger_right.Process(input_right);
   const float wet_mid = (wet_left + wet_right) * 0.5f;

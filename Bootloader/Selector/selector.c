@@ -89,7 +89,7 @@ static void oled_cmds(const uint8_t *cmds, size_t len) {
   oled_write(packet, len + 1u);
 }
 
-static void oled_init(void) {
+static void oled_init(bool reversed) {
   i2c_bus_recover();
   i2c_init(i2c0, 400000);
   gpio_set_function(PIN_WIRE_SDA, GPIO_FUNC_I2C);
@@ -104,6 +104,10 @@ static void oled_init(void) {
       0xd9, 0xf1, 0xdb, 0x40, 0xa4, 0xa6, 0x2e, 0xaf,
   };
   oled_cmds(init, sizeof(init));
+  if (reversed) {
+    const uint8_t orientation[] = {0xa0, 0xc0};
+    oled_cmds(orientation, sizeof(orientation));
+  }
   oled_clear();
   oled_flush();
 }
@@ -282,7 +286,7 @@ int main(void) {
   apply_cpu_frequency(&cfg);
 
   const bool returned_from_app = take_return_from_app_flag();
-  oled_init();
+  oled_init(PicoBootSystemSettingsFromFlags(cfg.reserved0).screen_rotation == PICO_BOOT_SCREEN_REVERSE);
   if (!returned_from_app) {
     play_boot_animation();
   }

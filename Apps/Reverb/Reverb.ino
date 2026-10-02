@@ -210,7 +210,9 @@ void serviceReverbCV() {
 
 
 
-void setup() { 
+void setup() {
+  PicoProSystemSettingsBegin();
+  PicoProApplyDisplayRotation(display);
   Serial.begin(115200);
 
 // init IO ports
@@ -322,6 +324,7 @@ void loop1(){
 // these calls will stall if not data is available
   left=i2s.read();    // input is mono but we still have to read both channels
   right=i2s.read();
+  PicoProRouteAudioInput(left, right);
 
 #ifdef MONITOR_CPU1
   digitalWrite(CPU_USE,1); // hi = CPU busy

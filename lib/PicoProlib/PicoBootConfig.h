@@ -15,6 +15,7 @@
 
 #include <Arduino.h>
 #include "hardware/flash.h"
+#include "PicoBootSystemSettings.h"
 
 #define PICO_BOOT_CONFIG_MAGIC 0x50494253u
 #define PICO_BOOT_CONFIG_VERSION 5u
@@ -204,6 +205,29 @@ static inline int PicoBootSaveCalibration(const PicoBootCalibration *cal) {
   if (!PicoBootLoadConfig(&cfg)) return 0;
   cfg.calibration = *cal;
   return PicoBootSaveConfig(&cfg);
+}
+
+static inline int PicoBootLoadSystemSettings(PicoBootSystemSettings *out) {
+  if (out == NULL) return 0;
+  out->audio_routing = PICO_BOOT_AUDIO_STEREO;
+  out->screen_rotation = PICO_BOOT_SCREEN_NORMAL;
+  PicoBootConfig cfg;
+  if (!PicoBootLoadConfig(&cfg)) return 0;
+  *out = PicoBootSystemSettingsFromFlags(cfg.reserved0);
+  return 1;
+}
+
+static inline int PicoBootSaveSystemSettings(const PicoBootSystemSettings *settings) {
+  if (!PicoBootSystemSettingsValid(settings)) return 0;
+  PicoBootConfig cfg;
+  if (!PicoBootLoadConfig(&cfg)) return 0;
+  const uint16_t flags = PicoBootSystemSettingsFlags(cfg.reserved0, settings);
+  if (flags == cfg.reserved0) return 1;
+  cfg.reserved0 = flags;
+  if (!PicoBootSaveConfig(&cfg)) return 0;
+  // Report failure if the newly written redundant record cannot be read back.
+  PicoBootConfig verified;
+  return PicoBootLoadConfig(&verified) && verified.reserved0 == flags;
 }
 
 #endif

@@ -1,4 +1,5 @@
 #include "TunerAudio.h"
+#include <PicoSystemRuntime.h>
 #include <string.h>
 void TunerAudio::service(I2S &audio) {
   // Preserve partial stereo transfers and retain a pending pair under output
@@ -9,6 +10,7 @@ void TunerAudio::service(I2S &audio) {
       received_ += audio.read(reinterpret_cast<uint8_t *>(pair_) + received_, 8 - received_);
       if (received_ != 8) continue;
     }
+    if (transmitted_ == 0) PicoProRouteAudioInput(pair_[0], pair_[1]);
     transmitted_ += audio.write(reinterpret_cast<const uint8_t *>(pair_) + transmitted_, 8 - transmitted_);
     if (transmitted_ != 8) break;
     received_ = transmitted_ = 0;
