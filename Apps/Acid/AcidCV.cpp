@@ -7,7 +7,6 @@
 #include "PicoBootConfig.h"
 
 extern Adafruit_SSD1306 display;
-static int32_t displaytimer = 0;
 
 #include "ui/CVModulation.h"
 #include "ui/KnobDisplay.h"

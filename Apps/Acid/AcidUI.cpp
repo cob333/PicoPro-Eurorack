@@ -6,7 +6,6 @@
 
 namespace {
 
-constexpr uint32_t kDisplaySleepMs = 60000u;
 constexpr uint32_t kGestureDebounceMs = 15u;
 constexpr uint32_t kGestureClickMinMs = 20u;
 constexpr uint32_t kGestureClickMaxMs = 350u;
@@ -59,9 +58,9 @@ int16_t q7Round(int16_t value) {
 }
 
 uint8_t wrapIndex(int16_t value, uint8_t count) {
-  while (value < 0) value += count;
-  while (value >= count) value -= count;
-  return (uint8_t)value;
+  if (count == 0) return 0;
+  value %= count;
+  return (uint8_t)(value < 0 ? value + count : value);
 }
 
 }  // namespace
@@ -73,7 +72,6 @@ void AcidUI::begin() {
   encoder_.setAccelerationEnabled(false);
   encoder_.getValue();
   encoder_.getButton();
-  last_activity_ms_ = millis();
   last_transport_running_ = sequencer_.playing();
   resetRootGesture();
   draw();
@@ -81,22 +79,10 @@ void AcidUI::begin() {
   display_dirty_ = false;
 }
 
-void AcidUI::noteActivity() {
-  last_activity_ms_ = millis();
-  if (display_asleep_) {
-    display_asleep_ = false;
-    draw();
-  }
-}
-
 void AcidUI::service() {
   const int16_t movement = encoder_.getValue();
   const ClickEncoder::Button button = encoder_.getButton();
   const bool button_down = digitalRead(ENCSW_IN) == LOW;
-
-  if (movement != 0 || button != ClickEncoder::Open || button_down)
-    noteActivity();
-  if (display_asleep_) return;
 
   if (page_ == BASS) {
     const uint8_t cv_result = AcidCVServiceOverlay(
@@ -156,12 +142,7 @@ void AcidUI::service() {
       AcidCVShouldRefresh(bass_item_, now_ms)) {
     draw();
   }
-  if ((now_ms - last_activity_ms_) >= kDisplaySleepMs) {
-    display_.clearDisplay();
-    display_.display();
-    display_asleep_ = true;
-    display_dirty_ = false;
-  } else if (display_dirty_) {
+  if (display_dirty_) {
     display_.display();
     display_dirty_ = false;
   }
@@ -845,7 +826,6 @@ void AcidUI::drawSteps() {
 }
 
 void AcidUI::draw() {
-  if (display_asleep_) return;
   switch (page_) {
     case ROOT: drawRoot(); break;
     case SEQ: drawSeq(); break;

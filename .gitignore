@@ -3,7 +3,5 @@
 Temp
 Bootloader/build
 reference
-sims/__pycache__
-Tools/__pycache__
-Bootloader/Tools/__pycache__
+__pycache__/
 AGENTS.md

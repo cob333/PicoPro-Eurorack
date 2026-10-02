@@ -58,7 +58,6 @@ Level - Output level
 #include "pico/multicore.h"
 #include "PicoAppState.h"
 
-#define DEBUG   // comment out to remove debug code
 #define MONITOR_CPU1  // define to enable 2nd core monitoring
 
 #define SAMPLERATE 44100
@@ -75,12 +74,7 @@ I2S i2s(INPUT_PULLUP); // both input and output
 float samplerate=SAMPLERATE;  // for DaisySP
 daisysp::ReverbSc reverb;
 
-enum UISTATES {RUN,DORMANT,WAIT_BUTTON_RELEASE};
-int16_t UI_state=RUN; // initial UI state
-
 #define DEBOUNCE_CYCLES 100 // counter to debounce button release
-
-int32_t displaytimer ; // display blanking timer
 
 ClickEncoder menuenc(ENCA_IN,ENCB_IN,ENCSW_IN,ENCDIVIDE); // menu encoder object
 
@@ -263,7 +257,6 @@ void setup() {
   display.setTextSize(1);
 
 	display.setTextColor(WHITE,BLACK); // foreground, background  
-  displaytimer=millis(); // reset display blanking timer
   drawmenu(0); // show first menu item
   menuenc.getValue(); // clear any initial input
 }
@@ -271,42 +264,10 @@ void setup() {
 
 // first Pico core does UI etc - not super time critical
 void loop() {
-  static int16_t debouncecounter;
-  int16_t encvalue;
-
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveReverbState, prepareReverbExit);
   serviceReverbCV();
 
-  if ((millis()-displaytimer) > DISPLAY_BLANK_MS) {
-    UI_state=DORMANT;  // 
-    blankdisplay(); // protect the OLED from burnin
-  } 
-
-  switch (UI_state) {
-    case RUN:
-     domenus();  // call the menu state machine
-   //  encvalue=menuenc.getValue();
-   //  if (encvalue) Serial.printf("%d\n",encvalue);
-      break;    
-    case DORMANT:  // using menu encoder will start screen up again
-      encvalue=menuenc.getValue();
-      if (encvalue || !digitalRead(ENCSW_IN)) {
-        updatedisplay(); // restore the display
-        debouncecounter=DEBOUNCE_CYCLES;
-        UI_state=WAIT_BUTTON_RELEASE;
-      }
-      break; 
-    case WAIT_BUTTON_RELEASE:  // intermediate state - wait for button release so it doesn't mess up menus
-      if (digitalRead(ENCSW_IN)) {
-        -- debouncecounter;
-        if (debouncecounter==0) UI_state=RUN;  // if button released move to run state
-      }
-      break;
-    default:
-      UI_state=RUN;
-      break;
-
-  }
+  domenus();
 }
 
 
@@ -338,9 +299,6 @@ void loop1(){
 
   reverb.Process(sigL, sigR, &outL, &outR); 
 
- // sigL=(sigL*(1-mix)+ outL*mix)*level; // full dry to full wet signal mix
-//  sigR=(sigR*(1-mix)+ outR*mix)*level;
-
   sigL=(sigL+ outL*mix)*level; // add reverb to dry signal - I think this sounds better
   sigR=(sigR+ outR*mix)*level;
 
@@ -364,6 +322,7 @@ void loop1(){
   digitalWrite(CPU_USE,0); // low - CPU not busy
 #endif
 // these calls will stall if buffer is full
+  PicoOutputMeterObserve(left, right);
 	i2s.write(left); // left passthru
 	i2s.write(right); // right passthru
 

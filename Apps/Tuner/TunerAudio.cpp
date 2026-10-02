@@ -37,7 +37,7 @@ void TunerAudio::publish() {
     __atomic_store_n(&state_[next], READY, __ATOMIC_RELEASE);
     return;
   }
-  __atomic_fetch_add(&dropped_, 1u, __ATOMIC_RELAXED);
+  // No free window: drop this publication without touching reader-owned data.
 }
 const float *TunerAudio::acquire() {
   for (uint8_t i = 0; i < 3; ++i) {

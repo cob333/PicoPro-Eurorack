@@ -46,8 +46,6 @@ enum PicoCVUiState {
 struct PicoCVAssignment {
   uint8_t input;
   int8_t amount;
-  float baseline_volts;
-  bool baseline_ready;
   uint8_t lfo_wave;
   uint8_t lfo_freq_code;
   float lfo_frequency_hz;
@@ -123,7 +121,6 @@ static inline void PicoCVBindMenus(const menu *menus, uint8_t count) {
     if (picoCVAssignments[i].amount == PICOPRO_CV_VOCT_AMOUNT &&
         !PicoCVIndexIsFrequency(i)) {
       picoCVAssignments[i].amount = 0;
-      picoCVAssignments[i].baseline_ready = false;
     }
   }
 }
@@ -181,9 +178,6 @@ static inline void PicoCVImportState(const PicoCVPersistentState *state) {
         assignment->amount = 10;
       }
     }
-    // V/oct is absolute: zero volts always maps to the parameter's base value.
-    assignment->baseline_volts = 0.0f;
-    assignment->baseline_ready = false;
     assignment->lfo_phase = 0.0f;
     assignment->lfo_frequency_hz =
         PicoCVLfoFrequencyHz(assignment->lfo_freq_code);
@@ -476,8 +470,6 @@ static inline void PicoCVCommitAssignment(uint8_t index, uint8_t input, int8_t a
   PicoCVAssignment *assignment = &picoCVAssignments[index];
   assignment->input = input;
   assignment->amount = amount;
-  assignment->baseline_volts = 0.0f;
-  assignment->baseline_ready = false;
   if (input == PICOPRO_CV_INPUT_LFO) {
     assignment->lfo_frequency_hz =
         PicoCVLfoFrequencyHz(assignment->lfo_freq_code);
@@ -487,8 +479,7 @@ static inline void PicoCVCommitAssignment(uint8_t index, uint8_t input, int8_t a
   picoCVDisplayDirty[index] = true;
 }
 
-static inline int16_t PicoCVVoctValue(uint8_t index,
-                                      uint8_t input,
+static inline int16_t PicoCVVoctValue(uint8_t input,
                                       int16_t base,
                                       int16_t min_value,
                                       int16_t max_value) {
@@ -548,7 +539,7 @@ static inline int16_t PicoCVModulatedValue(uint8_t index, int16_t base, int16_t 
   }
 
   if (amount == PICOPRO_CV_VOCT_AMOUNT && PicoCVIndexIsFrequency(index)) {
-    const int16_t value = PicoCVVoctValue(index, picoCVAssignments[index].input, base, min_value, max_value);
+    const int16_t value = PicoCVVoctValue(picoCVAssignments[index].input, base, min_value, max_value);
     PicoCVStoreDisplayValue(index, value, true);
     return value;
   }
@@ -653,7 +644,6 @@ static inline void PicoCVDrawOverlay(const menu *item) {
   }
   display.setTextColor(WHITE, BLACK);
   display.display();
-  displaytimer = millis();
 }
 
 static inline uint8_t PicoCVServiceOverlay(const menu *menus,

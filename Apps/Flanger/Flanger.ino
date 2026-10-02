@@ -11,13 +11,10 @@
 #define SAMPLERATE 44100
 #define DEBOUNCE_CYCLES 100
 
-enum UISTATES { RUN, DORMANT, WAIT_BUTTON_RELEASE };
-int16_t UI_state = RUN;
 
 I2S i2s(INPUT_PULLUP);
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-int32_t displaytimer;
 
 #include "ui/CVModulation.h"
 
@@ -259,32 +256,14 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   drawmenu(0);
   menuenc.getValue();
 }
 
 void loop() {
-  static int16_t debounce_counter = 0;
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveFlangerState, prepareFlangerExit);
   serviceFlangerCV();
-  switch (UI_state) {
-    case RUN: domenus(); break;
-    case DORMANT:
-      if (menuenc.getValue() || !digitalRead(ENCSW_IN)) {
-        UI_state = WAIT_BUTTON_RELEASE;
-        debounce_counter = DEBOUNCE_CYCLES;
-        drawmenu(menuindex);
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN) && --debounce_counter <= 0) UI_state = RUN;
-      break;
-  }
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS && UI_state == RUN) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
+  domenus();
 }
 
 void setup1() { delay(1000); }
@@ -340,6 +319,9 @@ void loop1() {
   const float level = active_level * 0.001f;
   if (exit_gain > flanger_exit_gain) --exit_gain;
   const float output_gain = level * exit_gain * 0.001f;
-  i2s.write(FloatToI2S((input_left * (1.0f - mix) + stereo_left * mix) * output_gain));
-  i2s.write(FloatToI2S((input_right * (1.0f - mix) + stereo_right * mix) * output_gain));
+  const int32_t output_left = FloatToI2S((input_left * (1.0f - mix) + stereo_left * mix) * output_gain);
+  const int32_t output_right = FloatToI2S((input_right * (1.0f - mix) + stereo_right * mix) * output_gain);
+  PicoOutputMeterObserve(output_left, output_right);
+  i2s.write(output_left);
+  i2s.write(output_right);
 }

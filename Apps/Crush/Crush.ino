@@ -10,13 +10,10 @@
 #define SAMPLERATE 44100
 #define DEBOUNCE_CYCLES 100
 
-enum UISTATES { RUN, DORMANT, WAIT_BUTTON_RELEASE };
-int16_t UI_state = RUN;
 
 I2S i2s(INPUT_PULLUP);
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-int32_t displaytimer;
 
 #include "ui/CVModulation.h"
 
@@ -237,33 +234,15 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   drawmenu(0);
   menuenc.getValue();
   crush_audio_ready = true;
 }
 
 void loop() {
-  static int16_t debounce_counter = 0;
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveCrushState, prepareCrushExit);
   serviceCrushCV();
-  switch (UI_state) {
-    case RUN: domenus(); break;
-    case DORMANT:
-      if (menuenc.getValue() || !digitalRead(ENCSW_IN)) {
-        UI_state = WAIT_BUTTON_RELEASE;
-        debounce_counter = DEBOUNCE_CYCLES;
-        drawmenu(menuindex);
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN) && --debounce_counter <= 0) UI_state = RUN;
-      break;
-  }
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS && UI_state == RUN) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
+  domenus();
 }
 
 void setup1() {
@@ -307,6 +286,9 @@ void loop1() {
   const int64_t wet_delta_right = static_cast<int64_t>(held_right) - dry_right;
   const int32_t mixed_left = dry_left + ((wet_delta_left * smooth_mix_q16) >> 16);
   const int32_t mixed_right = dry_right + ((wet_delta_right * smooth_mix_q16) >> 16);
-  i2s.write(static_cast<int32_t>((static_cast<int64_t>(mixed_left) * output_level) >> 16));
-  i2s.write(static_cast<int32_t>((static_cast<int64_t>(mixed_right) * output_level) >> 16));
+  const int32_t output_left = static_cast<int32_t>((static_cast<int64_t>(mixed_left) * output_level) >> 16);
+  const int32_t output_right = static_cast<int32_t>((static_cast<int64_t>(mixed_right) * output_level) >> 16);
+  PicoOutputMeterObserve(output_left, output_right);
+  i2s.write(output_left);
+  i2s.write(output_right);
 }

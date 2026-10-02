@@ -12,14 +12,11 @@
 #define SAMPLERATE 44100
 #include "Rings.h"
 
-enum UISTATES { RUN, DORMANT, WAIT_BUTTON_RELEASE };
-int16_t UI_state = RUN;
 #define DEBOUNCE_CYCLES 100
 
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 I2S rings_dac(OUTPUT);
-int32_t displaytimer;
 
 #include "ui/CVModulation.h"
 
@@ -249,7 +246,6 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   drawmenu(0);
   menuenc.getValue();
 
@@ -267,23 +263,7 @@ void setup() {
 void loop() {
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveRingsState, prepareRingsExit);
   serviceRingsControls();
-  switch (UI_state) {
-    case RUN: domenus(); break;
-    case DORMANT:
-      if (menuenc.getValue() || !digitalRead(ENCSW_IN)) {
-        UI_state = WAIT_BUTTON_RELEASE;
-        display.ssd1306_command(SSD1306_DISPLAYON);
-        drawmenu(menuindex);
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN)) UI_state = RUN;
-      break;
-  }
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS && UI_state == RUN) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
+  domenus();
 }
 
 void setup1() {
@@ -291,7 +271,8 @@ void setup1() {
 }
 
 void loop1() {
-  const int32_t sample = static_cast<int32_t>(pico_rings::NextSample()) << 16;
+  const int32_t sample = static_cast<int32_t>(pico_rings::NextSample()) * 65536;
+  PicoOutputMeterObserve(sample, sample);
   rings_dac.write(sample);
   rings_dac.write(sample);
 }

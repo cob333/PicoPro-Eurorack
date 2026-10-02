@@ -132,7 +132,7 @@ static inline void PicoKnobCompactLabel(const char *name, const char *value, cha
 
 static inline void PicoKnobDrawTextCentered(const char *text) {
   uint8_t len = 0;
-  while (text[len] != 0 && len < PICOPRO_KNOB_TEXT_CHARS) {
+  while (len < PICOPRO_KNOB_TEXT_CHARS && text[len] != 0) {
     ++len;
   }
   display.setCursor((PICOPRO_KNOB_SCREEN_WIDTH - ((int16_t)len * PICOPRO_KNOB_TEXT_WIDTH)) / 2,

@@ -15,6 +15,7 @@ Lightweight oscillator app:
 #include "ClickEncoder.h"
 #include "PicoAppState.h"
 #include "ADSR.h"
+#include "ui/StandbyDisplay.h"
 #include "wavetables/wavetable_bank.h"
 
 #ifdef PICOPRO_WAVETABLE_VARIABLE_MIP_SIZE
@@ -50,13 +51,10 @@ Lightweight oscillator app:
 
 I2S i2s(OUTPUT);
 
-enum UISTATES {RUN, DORMANT, WAIT_BUTTON_RELEASE};
 enum MenuModes {PARAM_SELECT, PARAM_INPUT, WAITBUTTONRELEASE1, WAITBUTTONRELEASE2};
-int16_t UI_state = RUN;
+static PicoStandbyDisplay standby;
 
 #define DEBOUNCE_CYCLES 100
-
-int32_t displaytimer;
 
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
@@ -178,7 +176,7 @@ static inline int32_t wavetableI2SClip(int32_t sample16) {
   } else if (sample16 < -32768) {
     sample16 = -32768;
   }
-  return sample16 << 16;
+  return sample16 * 65536;
 }
 
 static inline uint8_t wavetableMipForFreq(int16_t freq) {
@@ -449,12 +447,6 @@ static const PicoADSRMenuBinding wavetableADSRMenus[] = {
 
 static void updatedisplay(void) {
   display.display();
-  displaytimer = millis();
-}
-
-static void blankdisplay(void) {
-  display.clearDisplay();
-  display.display();
 }
 
 static int16_t currentMenuMax(int8_t index) {
@@ -533,7 +525,7 @@ static void serviceWavetableCV(void) {
 
 static void drawTextCentered(const char *text, int16_t y) {
   int16_t len = 0;
-  while (text[len] != 0 && len < 10) {
+  while (len < 10 && text[len] != 0) {
     ++len;
   }
   const int16_t x = (SCREEN_WIDTH - len * 6) / 2;
@@ -749,6 +741,18 @@ static void domenus(void) {
   const bool button_down = !digitalRead(ENCSW_IN);
   const ClickEncoder::Button button = menuenc.getButton();
 
+  const uint32_t now_ms = millis();
+  const auto idle = standby.poll(now_ms, enc != 0, button_down,
+                                button != ClickEncoder::Open);
+  if (idle != PicoStandbyDisplay::Normal) {
+    if (idle == PicoStandbyDisplay::Meter) standby.draw(display, now_ms);
+    else if (idle == PicoStandbyDisplay::Restore) {
+      if (picoCVUiState != PICOPRO_CV_UI_OFF) PicoCVDrawOverlay(&menus[menuindex]);
+      else drawWavetableScreen(menustate == PARAM_INPUT);
+    }
+    return;
+  }
+
   const uint8_t cv_result = PicoCVServiceOverlay(
       menus, NUM_MENUS, enc, button_down, button);
   if (cv_result != 0) {
@@ -869,49 +873,17 @@ void setup() {
   display.setFont(NULL);
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   PicoADSRRegisterMenus(wavetableADSRMenus, 1);
   drawWavetableScreen(false);
   menuenc.getValue();
 }
 
 void loop() {
-  static int16_t debouncecounter;
-  int16_t encvalue;
-
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveWavetableState, prepareWavetableExit);
   PicoADSRServiceGate(&wavetable_adsr_voice, millis());
   serviceWavetableCV();
 
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
-
-  switch (UI_state) {
-    case RUN:
-      domenus();
-      break;
-    case DORMANT:
-      encvalue = menuenc.getValue();
-      if (encvalue || !digitalRead(ENCSW_IN)) {
-        drawWavetableScreen(false);
-        debouncecounter = DEBOUNCE_CYCLES;
-        UI_state = WAIT_BUTTON_RELEASE;
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN)) {
-        --debouncecounter;
-        if (debouncecounter == 0) {
-          UI_state = RUN;
-        }
-      }
-      break;
-    default:
-      UI_state = RUN;
-      break;
-  }
+  domenus();
 }
 
 void setup1() {
@@ -932,6 +904,7 @@ void loop1() {
   const int32_t sample = wavetableI2SClip(sample16);
 
   phase_accum = phase + phase_inc;
+  PicoOutputMeterObserve(sample, sample);
   i2s.write(sample);
   i2s.write(sample);
 }

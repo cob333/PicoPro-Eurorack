@@ -134,7 +134,7 @@ static inline void PicoADSRDrawSegmentedLine(int16_t x0,
       display.drawPixel(x0, y0, WHITE);
     }
     if (x0 == x1 && y0 == y1) break;
-    const int16_t e2 = err << 1;
+    const int16_t e2 = err * 2; // err can be negative; signed left shift is undefined.
     if (e2 >= dy) {
       err += dy;
       x0 += sx;

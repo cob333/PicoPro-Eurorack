@@ -20,9 +20,6 @@ constexpr uint32_t GLITCH_CLOCK_DEBOUNCE_FRAMES = 64;
 constexpr uint32_t GLITCH_FADE_FRAMES = 64;
 constexpr uint16_t GLITCH_Q16_MAX = 65535u;
 
-enum UISTATES { RUN, DORMANT, WAIT_BUTTON_RELEASE };
-int16_t UI_state = RUN;
-int32_t displaytimer;
 
 I2S i2s(INPUT_PULLUP);
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
@@ -264,7 +261,7 @@ static void serviceGlitchAnimation() {
     started_ms = now;
     last_frame_ms = now - 40u;
   }
-  if (!effects || UI_state != RUN || picoCVUiState != PICOPRO_CV_UI_OFF) return;
+  if (!effects || PicoMenuStandbyActive() || picoCVUiState != PICOPRO_CV_UI_OFF) return;
   if ((now - started_ms) >= 320u) {
     effects = 0;
     drawmenu(menuindex, menustate == PARAM_INPUT);
@@ -456,7 +453,7 @@ static void handleClockEdge(PlaybackState &state, uint32_t measured) {
 static inline int32_t outputSample(int16_t sample, int16_t level, int16_t exit_gain) {
   int32_t value = (int64_t)sample * level * exit_gain / 1000000;
   value = constrain(value, -32768, 32767);
-  return value << 16;
+  return value * 65536;
 }
 
 static void prepareGlitchExit() {
@@ -498,35 +495,16 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   drawmenu(0);
   menuenc.getValue();
   glitch_audio_ready = true;
 }
 
 void loop() {
-  static int16_t debounce_counter = 0;
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveGlitchState, prepareGlitchExit);
   serviceGlitchControls();
-  switch (UI_state) {
-    case RUN: domenus(); break;
-    case DORMANT:
-      if (menuenc.getValue() || !digitalRead(ENCSW_IN)) {
-        UI_state = WAIT_BUTTON_RELEASE;
-        debounce_counter = DEBOUNCE_CYCLES;
-        display.ssd1306_command(SSD1306_DISPLAYON);
-        drawmenu(menuindex);
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN) && --debounce_counter <= 0) UI_state = RUN;
-      break;
-  }
+  domenus();
   serviceGlitchAnimation();
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS && UI_state == RUN) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
 }
 
 void setup1() {
@@ -619,8 +597,11 @@ void loop1() {
 
   if (exit_gain > glitch_exit_gain) --exit_gain;
   const int16_t level = active_level;
-  i2s.write(outputSample(output.left, level, exit_gain));
-  i2s.write(outputSample(output.right, level, exit_gain));
+  const int32_t output_left = outputSample(output.left, level, exit_gain);
+  const int32_t output_right = outputSample(output.right, level, exit_gain);
+  PicoOutputMeterObserve(output_left, output_right);
+  i2s.write(output_left);
+  i2s.write(output_right);
 
   if (audio_state.samples_since_edge < UINT32_MAX) ++audio_state.samples_since_edge;
   if (clock_mode != 0 && audio_state.raw_samples_since_edge < UINT32_MAX)

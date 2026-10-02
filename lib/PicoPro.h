@@ -33,22 +33,14 @@
 #include "PicoPro_io.h"
 #include "CVInput.h"
 #include "BootSelector.h"
-#include "ClickButton.h"
 #include "CVPersistence.h"
 #include "PicoBootConfig.h"
 #include "PicoSystemRuntime.h"
-#include "scales.h"
+#include "OutputMeter.h"
 
 // constants for integer to float and float to integer conversion
 #define MULT_16 2147483647
 #define DIV_16 4.6566129e-10
-
-
-#define DEBOUNCE 10   // debounce for buttons
-#define GATE_DEBOUNCE 1  // some modules output a very short trigger so don't do a long debounce
-#define TRIG_DEBOUNCE 1  // short trigger debounce too
-#define CLOCK_DEBOUNCE 1 // short clock debounce
-#define PARAMETERUPDATE 100  // some DaisySP models don't like values that jump around a lot so limit the changes
 
 
 // timer stuff - periodic timer used to service encoder

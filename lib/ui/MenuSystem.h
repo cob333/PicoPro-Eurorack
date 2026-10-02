@@ -4,6 +4,7 @@
 #include "../MenuTypes.h"
 #include "KnobDisplay.h"
 #include "CVModulation.h"
+#include "StandbyDisplay.h"
 
 enum menumodes {
   PARAM_SELECT,
@@ -14,6 +15,9 @@ enum menumodes {
 
 static int16_t menustate = PARAM_SELECT;
 int8_t menuindex = 0;
+static PicoStandbyDisplay menuStandby;
+
+static inline bool PicoMenuStandbyActive() { return menuStandby.active(); }
 
 #define NUM_MENUS (sizeof(menus) / sizeof(menu))
 
@@ -22,18 +26,8 @@ int8_t menuindex = 0;
   PicoKnobDrawMenuItem((item), (editing), (nav_dir), (index), (total))
 #endif
 
-void blankdisplay(void) {
-  uint8_t tempbuf[SCREEN_BUFFER_SIZE];
-  uint8_t *buf = display.getBuffer();
-  memcpy(tempbuf, buf, SCREEN_BUFFER_SIZE);
-  display.clearDisplay();
-  display.display();
-  memcpy(buf, tempbuf, SCREEN_BUFFER_SIZE);
-}
-
 void updatedisplay(void) {
   display.display();
-  displaytimer = millis();
 }
 
 void drawmenu(int8_t index, bool editing = false) {
@@ -85,6 +79,18 @@ void domenus(void) {
   static int16_t debouncecounter;
   const bool button_down = !digitalRead(ENCSW_IN);
   const ClickEncoder::Button button = menuenc.getButton();
+
+  const uint32_t now_ms = millis();
+  const auto standby = menuStandby.poll(now_ms, enc != 0, button_down,
+                                       button != ClickEncoder::Open);
+  if (standby != PicoStandbyDisplay::Normal) {
+    if (standby == PicoStandbyDisplay::Meter) menuStandby.draw(display, now_ms);
+    else if (standby == PicoStandbyDisplay::Restore) {
+      if (picoCVUiState != PICOPRO_CV_UI_OFF) PicoCVDrawOverlay(&menus[menuindex]);
+      else drawmenu(menuindex, menustate == PARAM_INPUT);
+    }
+    return;
+  }
 
   const uint8_t cv_result = PicoCVServiceOverlay(
       menus, NUM_MENUS, enc, button_down, button);
@@ -167,10 +173,10 @@ void domenus(void) {
       break;
   }
 
-  const uint32_t now_ms = millis();
-  bool refresh = PicoADSRShouldRefreshEnvelopeForMenu(&menus[menuindex], now_ms);
+  const uint32_t refresh_ms = millis(); // Navigation animation may have elapsed.
+  bool refresh = PicoADSRShouldRefreshEnvelopeForMenu(&menus[menuindex], refresh_ms);
   if (!refresh) {
-    refresh = PicoCVShouldRefreshDisplay(menuindex, now_ms);
+    refresh = PicoCVShouldRefreshDisplay(menuindex, refresh_ms);
   }
   if (refresh) {
     drawmenu(menuindex, menustate == PARAM_INPUT);

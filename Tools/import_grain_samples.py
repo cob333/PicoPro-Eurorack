@@ -2,7 +2,6 @@
 """Convert the stereo 24-bit PCM WAVs used by Grain into 16-bit flash tables."""
 
 from pathlib import Path
-import struct
 import wave
 
 

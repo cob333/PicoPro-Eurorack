@@ -13,9 +13,6 @@
 constexpr float DUCKING_MIN_GAIN = 0.10f;
 constexpr uint8_t DUCKING_TRIGGER_POLL_DIVIDER = 16;
 
-enum UISTATES { RUN, DORMANT, WAIT_BUTTON_RELEASE };
-int16_t UI_state = RUN;
-int32_t displaytimer;
 
 I2S i2s(INPUT_PULLUP);
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
@@ -246,7 +243,7 @@ static void serviceDuckingMeterUI() {
   static uint8_t last_needle = 0xffu;
   static bool overlay_was_active = false;
   const uint32_t now = millis();
-  if (UI_state != RUN) return;
+  if (PicoMenuStandbyActive()) return;
   if (picoCVUiState != PICOPRO_CV_UI_OFF) {
     overlay_was_active = true;
     return;
@@ -366,36 +363,17 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   drawmenu(0);
   menuenc.getValue();
   ducking_audio_ready = true;
 }
 
 void loop() {
-  static int16_t debounce_counter = 0;
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveDuckingState,
                              prepareDuckingExit);
   serviceDuckingControls();
-  switch (UI_state) {
-    case RUN: domenus(); break;
-    case DORMANT:
-      if (menuenc.getValue() || !digitalRead(ENCSW_IN)) {
-        UI_state = WAIT_BUTTON_RELEASE;
-        debounce_counter = DEBOUNCE_CYCLES;
-        display.ssd1306_command(SSD1306_DISPLAYON);
-        drawmenu(menuindex);
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN) && --debounce_counter <= 0) UI_state = RUN;
-      break;
-  }
+  domenus();
   serviceDuckingMeterUI();
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS && UI_state == RUN) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
 }
 
 void setup1() {
@@ -487,6 +465,9 @@ void loop1() {
   const float total_gain = gain * output_level * exit_gain * 0.001f;
   const float left = input_left_32 * DIV_16 * total_gain;
   const float right = input_right_32 * DIV_16 * total_gain;
-  i2s.write(duckingFloatToI2S(left));
-  i2s.write(duckingFloatToI2S(right));
+  const int32_t output_left = duckingFloatToI2S(left);
+  const int32_t output_right = duckingFloatToI2S(right);
+  PicoOutputMeterObserve(output_left, output_right);
+  i2s.write(output_left);
+  i2s.write(output_right);
 }

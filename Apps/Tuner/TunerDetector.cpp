@@ -10,7 +10,7 @@ TunerReading TunerDetector::analyze(const float *samples) {
   float sum = 0;
   float before = 1, previous = 1;
   float raw_before = 0, raw_previous = 0;
-  float a = 0, b = 0, c = 0, confidence = 0;
+  float a = 0, b = 0, c = 0;
   uint16_t candidate = 0;
   for (uint16_t lag = 1; lag <= kMaxLag; ++lag) {
     float value = 0;
@@ -24,7 +24,6 @@ TunerReading TunerDetector::analyze(const float *samples) {
     // neighbor is known, later lags cannot change the chosen candidate.
     if (lag >= 11 && previous < 0.15f && previous <= before && previous < normalized) {
       candidate = lag - 1;
-      confidence = 1 - previous;
       a = raw_before; b = raw_previous; c = value;
       break;
     }
@@ -38,7 +37,6 @@ TunerReading TunerDetector::analyze(const float *samples) {
   if (offset < -0.5f) offset = -0.5f;
   if (offset > 0.5f) offset = 0.5f;
   result.frequency = kRate / (candidate + offset);
-  result.confidence = confidence;
   result.valid = result.frequency >= 31.9f && result.frequency <= 2010.0f;
   return result;
 }

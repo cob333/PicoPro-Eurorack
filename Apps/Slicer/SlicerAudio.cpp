@@ -1,6 +1,7 @@
 #include "SlicerAudio.h"
 #include <CVInput.h>
 #include <PicoSystemRuntime.h>
+#include <OutputMeter.h>
 #include <math.h>
 #include <limits.h>
 
@@ -86,6 +87,7 @@ void SlicerAudio::service(I2S &audio) {
     transmitted_ += audio.write(reinterpret_cast<const uint8_t *>(output_) + transmitted_,
                                  sizeof(output_) - transmitted_);
     if (transmitted_ != sizeof(output_)) break;
+    PicoOutputMeterObserve(output_[0], output_[1]); // Exactly once per emitted frame.
     received_ = transmitted_ = 0;
     pending_ = false;
   }

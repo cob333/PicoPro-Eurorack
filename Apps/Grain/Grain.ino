@@ -14,13 +14,10 @@
 #define DEBOUNCE_CYCLES 100
 #define GRAIN_VOICE_COUNT 4
 
-enum UISTATES { RUN, DORMANT, WAIT_BUTTON_RELEASE };
-int16_t UI_state = RUN;
 
 I2S i2s(OUTPUT);
 ClickEncoder menuenc(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-int32_t displaytimer;
 
 #include "ui/CVModulation.h"
 
@@ -297,7 +294,6 @@ void setup() {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(WHITE, BLACK);
-  displaytimer = millis();
   PicoADSRRegisterMenus(grainADSRMenus, 1);
   drawmenu(0);
   menuenc.getValue();
@@ -305,27 +301,10 @@ void setup() {
 }
 
 void loop() {
-  static int16_t debounce_counter = 0;
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveGrainState, prepareGrainExit);
   PicoADSRServiceGate(&grain_adsr_voice, millis());
   serviceGrainControls();
-  switch (UI_state) {
-    case RUN: domenus(); break;
-    case DORMANT:
-      if (menuenc.getValue() || !digitalRead(ENCSW_IN)) {
-        UI_state = WAIT_BUTTON_RELEASE;
-        debounce_counter = DEBOUNCE_CYCLES;
-        drawmenu(menuindex);
-      }
-      break;
-    case WAIT_BUTTON_RELEASE:
-      if (digitalRead(ENCSW_IN) && --debounce_counter <= 0) UI_state = RUN;
-      break;
-  }
-  if ((millis() - displaytimer) > DISPLAY_BLANK_MS && UI_state == RUN) {
-    UI_state = DORMANT;
-    blankdisplay();
-  }
+  domenus();
 }
 
 void setup1() {
@@ -406,6 +385,9 @@ void loop1() {
   int64_t right = ((sum_right >> 16) * gain) / 200000;
   left = constrain(left, static_cast<int64_t>(-32768), static_cast<int64_t>(32767));
   right = constrain(right, static_cast<int64_t>(-32768), static_cast<int64_t>(32767));
-  i2s.write(static_cast<int32_t>(left * 65536));
-  i2s.write(static_cast<int32_t>(right * 65536));
+  const int32_t output_left = static_cast<int32_t>(left * 65536);
+  const int32_t output_right = static_cast<int32_t>(right * 65536);
+  PicoOutputMeterObserve(output_left, output_right);
+  i2s.write(output_left);
+  i2s.write(output_right);
 }

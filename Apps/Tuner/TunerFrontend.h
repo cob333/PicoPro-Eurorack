@@ -2,7 +2,7 @@
 #define PICOPRO_TUNER_FRONTEND_H
 #include <stdint.h>
 // Input normalization is performed by the I2S owner. This stateful frontend is
-// independent of Arduino so host tests exercise the actual capture filtering.
+// independent of Arduino and only performs capture filtering and decimation.
 class TunerFrontend {
  public:
   bool process(float input, float *output) {

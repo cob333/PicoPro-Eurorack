@@ -8,17 +8,18 @@
 #include <ClickEncoder.h>
 #include <Adafruit_SSD1306.h>
 #include <MenuTypes.h>
+#include <ui/StandbyDisplay.h>
 
 constexpr int64_t kEncoderServiceUs = 1000;
 static_assert(-kEncoderServiceUs == -1000, "Encoder timer period must be signed");
 
 static Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-static uint32_t displaytimer = 0;
 static ClickEncoder encoder(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 static repeating_timer_t encoderTimer;
 static bool displayOK = false, editing = false, buttonArmed = true;
 static uint8_t page = 0;
 static uint32_t lastControlMs = 0;
+static PicoStandbyDisplay standby;
 
 enum Parameter : uint8_t { MODE, PATTERN, CLOCK, BPM, RATIO, ATTACK, DUTY, MIX, DEPTH, COUNT };
 constexpr uint8_t kPageCount = COUNT - 1; // BPM and ratio share one visible page.
@@ -67,7 +68,7 @@ static void draw() {
   PicoKnobDrawMenuItem(&menus[index], editing, 0, index);
   PicoKnobDrawIndex(page, kPageCount);
   if (!assignable(index)) display.fillRect(49, 0, 15, 9, BLACK);
-  display.display(); displaytimer = millis();
+  display.display();
 }
 
 struct SavedState { int16_t values[COUNT]; PicoCVPersistentState cv; };
@@ -120,6 +121,19 @@ void SlicerUI::service() {
   const bool down = !digitalRead(ENCSW_IN);
   const auto button = encoder.getButton();
   const auto edge = encoder.getButtonEvent();
+  if (displayOK) {
+    const bool buttonActivity = button != ClickEncoder::Open || edge != ClickEncoder::NoEvent;
+    const auto idle = standby.poll(now, rotation != 0, down, buttonActivity);
+    if (idle != PicoStandbyDisplay::Normal) {
+      buttonArmed = !down;
+      if (idle == PicoStandbyDisplay::Meter) standby.draw(display, now);
+      else if (idle == PicoStandbyDisplay::Restore) {
+        if (picoCVUiState != PICOPRO_CV_UI_OFF) PicoCVDrawOverlay(&menus[parameter()]);
+        else draw();
+      }
+      return;
+    }
+  }
   if (edge == ClickEncoder::InActiveEdge) buttonArmed = true;
   const bool press = edge == ClickEncoder::ActiveEdge && buttonArmed;
   if (edge == ClickEncoder::ActiveEdge) buttonArmed = false;

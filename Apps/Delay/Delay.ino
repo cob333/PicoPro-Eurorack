@@ -51,17 +51,11 @@ Menu Parameters:
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <pico-audio.h>
+#include "DelayOutputMeter.h"
 #include "ClickEncoder.h"
 #include "PicoAppState.h"
 
-#define DEBUG   // comment out to remove debug code
-
-enum UISTATES {RUN,DORMANT,WAIT_BUTTON_RELEASE};
-int16_t UI_state=RUN; // initial UI state
-
 #define DEBOUNCE_CYCLES 100 // counter to debounce button release
-
-int32_t displaytimer; // display blanking timer
 
 ClickEncoder menuenc(ENCA_IN,ENCB_IN,ENCSW_IN,ENCDIVIDE); // menu encoder object
 
@@ -111,6 +105,9 @@ AudioEffectDelay         delay2;         //xy=500,266
 AudioMixer4              mixer2;         //xy=500,84
 AudioMixer4              mixeroutL;         //xy=500,84
 AudioMixer4              mixeroutR;         //xy=500,84
+DelayOutputMeter         outputMeter;
+AudioConnection meterL(mixeroutL, 0, outputMeter, 0);
+AudioConnection meterR(mixeroutR, 0, outputMeter, 1);
 AudioConnection     patchCord1(routedInputL, 0, mixer1, 0);
 AudioConnection     patchCord2(mixer1, delay1);
 AudioConnection     patchCord3(routedInputR, 0, mixer2, 0);
@@ -286,14 +283,9 @@ void setup() {
   display.setTextSize(1);
 
 	display.setTextColor(WHITE,BLACK); // foreground, background  
-  displaytimer=millis(); // reset display blanking timer
   drawmenu(0); // show first menu item
   menuenc.getValue(); // clear any initial input
 }
-
-
-int count = 0;
-int speed = 60;
 
 
 // first core handles Pico Audio processing under interrupts
@@ -301,22 +293,6 @@ void loop() {
 
   PicoProServiceSelectorExit(ENCSW_IN, menuenc, saveDelayState, prepareDelayExit);
   serviceDelayCV();
-
-  // print a summary of the current & maximum usage
-
-  Serial.print("all=");
-  Serial.print(AudioProcessorUsage());
-  Serial.print(",");
-  Serial.print(AudioProcessorUsageMax());
-  Serial.print("    ");
-  Serial.print("Memory: ");
-  Serial.print(AudioMemoryUsage());
-  Serial.print(",");
-  Serial.print(AudioMemoryUsageMax());
-  Serial.print("    ");
-
-  Serial.println();
-  delay(speed);
 
 }
 
@@ -327,36 +303,5 @@ delay (1000); // wait for main core to start up peripherals
 }
 
 void loop1() {
-  static int16_t debouncecounter;
-  int16_t encvalue;
-
-  if ((millis()-displaytimer) > DISPLAY_BLANK_MS) {
-    UI_state=DORMANT;  // 
-    blankdisplay(); // protect the OLED from burnin
-  } 
-
-  switch (UI_state) {
-    case RUN:
-     domenus();  // call the menu state machine
-   //  encvalue=menuenc.getValue();
-   //  if (encvalue) Serial.printf("%d\n",encvalue);
-      break;    
-    case DORMANT:  // using menu encoder will start screen up again
-      encvalue=menuenc.getValue();
-      if (encvalue || !digitalRead(ENCSW_IN)) {
-        updatedisplay(); // restore the display
-        debouncecounter=DEBOUNCE_CYCLES;
-        UI_state=WAIT_BUTTON_RELEASE;
-      }
-      break; 
-    case WAIT_BUTTON_RELEASE:  // intermediate state - wait for button release so it doesn't mess up menus
-      if (digitalRead(ENCSW_IN)) {
-        -- debouncecounter;
-        if (debouncecounter==0) UI_state=RUN;  // if button released move to run state
-      }
-      break;
-    default:
-      UI_state=RUN;
-      break;
-  }
+  domenus(); // Shared menu/standby UI only; the audio IRQ remains on core 0.
 }

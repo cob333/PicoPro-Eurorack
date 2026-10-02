@@ -70,7 +70,6 @@ class AcidUI {
   StepGesture serviceStepGesture(uint32_t now_ms);
   void resetStepGesture();
   void resetRootGesture();
-  void noteActivity();
 
   void draw();
   void drawRoot();
@@ -103,9 +102,7 @@ class AcidUI {
   int16_t button_debounce_counter_ = 0;
   int8_t selected_step_ = 0;
   bool editing_step_ = false;
-  bool display_asleep_ = false;
   bool display_dirty_ = false;
-  uint32_t last_activity_ms_ = 0;
   uint32_t play_animation_ms_ = 0;
   uint8_t play_animation_frame_ = 0;
   bool root_overlay_visible_ = false;

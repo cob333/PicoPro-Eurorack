@@ -60,15 +60,12 @@
 #define AIN2 	28
 #define AIN3 	29 // not available on standard Pico board
 
-#define DISPLAY_BLANK_MS 60*1000  // display blanking time
 #define OLED_DISPLAY   // for graphics conditionals
 
 #define OLED_RESET -1        // Reset pin # (or -1 if sharing Arduino reset pin)
 #define SCREEN_ADDRESS 0x3C  ///< See datasheet for Address; 0x3D for 128x64, 0x3C for 128x32
 #define SCREEN_WIDTH 64  // OLED display width, in pixels
 #define SCREEN_HEIGHT 32  // OLED display height, in pixels
-#define SCREEN_BUFFER_SIZE (SCREEN_WIDTH * ((SCREEN_HEIGHT + 7) / 8))
 
 
 #endif // IO_H_
-

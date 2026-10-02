@@ -10,7 +10,6 @@ class TunerAudio {
   void service(I2S &audio);
   const float *acquire();
   void release(const float *frame);
-  uint32_t droppedWindows() const { return __atomic_load_n(&dropped_, __ATOMIC_RELAXED); }
  private:
   enum : uint8_t { FREE, FILL, READY, READING };
   float frames_[3][TunerDetector::kFrame] = {};
@@ -22,7 +21,6 @@ class TunerAudio {
   int32_t pair_[2] = {};
   uint8_t received_ = 0;
   uint8_t transmitted_ = 0;
-  uint32_t dropped_ = 0;
   void publish();
 };
 #endif

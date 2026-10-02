@@ -3,7 +3,6 @@
 #include <stdint.h>
 struct TunerReading {
   float frequency = 0;
-  float confidence = 0;
   bool valid = false;
 };
 class TunerDetector {
