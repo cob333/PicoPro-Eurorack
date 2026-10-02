@@ -48,11 +48,12 @@ PicoPro Eurorack 是一套基于4HPico DSP的二次开发模块，面向 RP2350 
 | 4 | Grain | 可用 |
 | 5 | Rings | 可用 |
 | 6 | Acid | 可用 |
-| 7 | Glitch | 可用 |
-| 8 | Flanger | 可用 |
-| 9 | Ducking | 可用 |
-| 10 | Crush | 可用 |
-| 11 | Slicer | 敬请期待 |
+| 7 | Settings | 可用 |
+| 8 | Glitch | 可用 |
+| 9 | Flanger | 可用 |
+| 10 | Ducking | 可用 |
+| 11 | Crush | 可用 |
+| 12 | Slicer | 可用 |
 
 ## 设置
 
@@ -89,7 +90,7 @@ Arduino 库：
 - [DaisySP_Teensy](https://github.com/rheslip/DaisySP_Teensy)，供 Reverb 使用
 - [arduinoMI](https://github.com/poetaster/arduinoMI) 中的 RINGS 和 STMLIB
 
-`I2S`、`Wire` 和 `SPI` 由 Arduino-Pico 提供。项目自己的库在 `lib/PicoProlib`，构建脚本会自动加载。
+`I2S`、`Wire` 和 `SPI` 由 Arduino-Pico 提供。构建脚本会自动将 `lib/` 作为一个 Arduino 库加载。
 
 ## 构建
 
@@ -155,7 +156,7 @@ Fonts/                 OLED 字体
 Images/                应用图标动画帧
 Tools/                 音频资源转换工具
 Web_images/            文档图片
-lib/PicoProlib/        PicoPro 公共库
+lib/                  PicoPro 公共库
 sims/                  UI 模拟器
 ```
 

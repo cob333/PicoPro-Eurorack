@@ -456,7 +456,7 @@ def main() -> None:
   parser.add_argument("--fqbn", default=None, help="Arduino FQBN for app slots; defaults to 250MHz Pico 2")
   parser.add_argument("--cpu-hz", type=int_arg, default=None, help="runtime CPU clock stored in boot config")
   parser.add_argument("--clean", action="store_true", help="remove per-slot build folders first")
-  parser.add_argument("--library", action="append", type=Path, default=[ROOT / "lib"])
+  parser.add_argument("--library", action="append", type=Path, default=[ROOT / "lib"], help="Path to a single Arduino library root; may be repeated")
   args = parser.parse_args()
 
   manifest = load_manifest(args.manifest)

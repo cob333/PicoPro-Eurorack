@@ -20,6 +20,26 @@ struct CVInputState {
 
 CVInputState state;
 
+constexpr uint8_t kClockQueueSize = 16;
+static_assert((kClockQueueSize & (kClockQueueSize - 1)) == 0,
+              "Clock queue size must be a power of two");
+PicoCVClockEdge clockQueue[kClockQueueSize];
+uint32_t clockHead = 0, clockTail = 0, clockEpoch = 0;
+int8_t clockInput = 0;
+
+void captureClock(uint8_t input) {
+  if (__atomic_load_n(&clockInput, __ATOMIC_ACQUIRE) != input + 1 ||
+      PicoCVInputAnalogAvailable(input)) return;
+  const uint32_t head = __atomic_load_n(&clockHead, __ATOMIC_RELAXED);
+  const uint32_t tail = __atomic_load_n(&clockTail, __ATOMIC_ACQUIRE);
+  if (head - tail >= kClockQueueSize) return;
+  clockQueue[head & (kClockQueueSize - 1)] =
+      {micros(), __atomic_load_n(&clockEpoch, __ATOMIC_ACQUIRE)};
+  __atomic_store_n(&clockHead, head + 1, __ATOMIC_RELEASE);
+}
+void captureClock1() { captureClock(0); }
+void captureClock2() { captureClock(1); }
+
 uint8_t clampInput(uint8_t input) {
   return input < kInputCount ? input : 0u;
 }
@@ -140,4 +160,36 @@ bool PicoCVInputDigitalActiveLow(uint8_t input) {
     return false;
   }
   return !digitalRead(PicoCVInputPin(input));
+}
+
+void PicoCVInputSelectClockCapture(int8_t one_based_input) {
+  const int8_t next = one_based_input >= 1 && one_based_input <= 2 ? one_based_input : 0;
+  const int8_t previous = __atomic_load_n(&clockInput, __ATOMIC_ACQUIRE);
+  if (next == previous) return;
+  if (previous) {
+    const uint8_t old = previous - 1;
+    detachInterrupt(digitalPinToInterrupt(PicoCVInputPin(old)));
+    PicoCVInputSetDigitalRole(old, false);
+  }
+  __atomic_store_n(&clockInput, next, __ATOMIC_RELEASE);
+  __atomic_add_fetch(&clockEpoch, 1u, __ATOMIC_RELEASE);
+  if (next) {
+    const uint8_t input = next - 1;
+    PicoCVInputSetDigitalRole(input, true);
+    attachInterrupt(digitalPinToInterrupt(PicoCVInputPin(input)),
+                    input ? captureClock2 : captureClock1, FALLING);
+  }
+}
+
+uint32_t PicoCVInputClockCaptureEpoch() {
+  return __atomic_load_n(&clockEpoch, __ATOMIC_ACQUIRE);
+}
+
+bool PicoCVInputPopClockEdge(PicoCVClockEdge *edge) {
+  if (!edge) return false;
+  const uint32_t tail = __atomic_load_n(&clockTail, __ATOMIC_RELAXED);
+  if (tail == __atomic_load_n(&clockHead, __ATOMIC_ACQUIRE)) return false;
+  *edge = clockQueue[tail & (kClockQueueSize - 1)];
+  __atomic_store_n(&clockTail, tail + 1, __ATOMIC_RELEASE);
+  return true;
 }

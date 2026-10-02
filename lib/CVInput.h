@@ -24,4 +24,12 @@ bool PicoCVInputReadGate(uint8_t input, bool previous_high,
 bool PicoCVInputReadGate(uint8_t input, bool previous_high);
 bool PicoCVInputDigitalActiveLow(uint8_t input);
 
+// One active CV1/CV2 clock capture, configured on core0 outside the audio loop.
+// Active-low board input: falling GPIO edges correspond to rising external CV.
+// IRQ producer/core1 consumer use a fixed 16-event FIFO; overflow drops newest.
+struct PicoCVClockEdge { uint32_t time_us; uint32_t epoch; };
+void PicoCVInputSelectClockCapture(int8_t one_based_input);
+uint32_t PicoCVInputClockCaptureEpoch();
+bool PicoCVInputPopClockEdge(PicoCVClockEdge *edge);
+
 #endif  // PICOPRO_CV_INPUT_H_

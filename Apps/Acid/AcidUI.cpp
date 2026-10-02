@@ -2,7 +2,7 @@
 
 #include "AcidCV.h"
 #include "PicoPro_io.h"
-#include "../../Fonts/Picopixel.h"
+#include <../Fonts/Picopixel.h>
 
 namespace {
 

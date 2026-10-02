@@ -1,7 +1,7 @@
 #include "SettingsUI.h"
 #include <stdio.h>
 #include <PicoSystemRuntime.h>
-#include "../../Fonts/Picopixel.h"
+#include <../Fonts/Picopixel.h>
 
 void SettingsUI::begin(bool displayOK, bool down, uint32_t now) {
   displayOK_ = displayOK;

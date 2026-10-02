@@ -335,7 +335,7 @@ def build_slot(args: argparse.Namespace) -> None:
         f"recipe.hooks.linking.prelink.1.pattern={recipe}",
     ]
     for library in args.library:
-        cmd.extend(["--libraries", str(library)])
+        cmd.extend(["--library", str(library)])
     cmd.append(str(args.sketch))
     env = os.environ.copy()
     toolchain = Path.home() / "Library/Arduino15/packages/rp2040/tools/pqt-gcc/4.1.0-1aec55e/bin"
@@ -493,7 +493,7 @@ def main() -> None:
     slot.add_argument("--first-app-offset", type=int_arg, default=PICO_SELECTOR_FIRST_APP_OFFSET)
     slot.add_argument("--fqbn", default=DEFAULT_FQBN)
     slot.add_argument("--build-path", type=Path, required=True)
-    slot.add_argument("--library", action="append", default=[])
+    slot.add_argument("--library", action="append", default=[], help="Path to a single Arduino library root; may be repeated")
     slot.set_defaults(func=build_slot)
 
     pack = subparsers.add_parser("package", help="combine selector and slot-linked app UF2 files")

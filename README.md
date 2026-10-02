@@ -48,11 +48,12 @@ Apps and slot assignments are defined in [`Bootloader/apps.json`](Bootloader/app
 | 4 | Grain | Available |
 | 5 | Rings | Available |
 | 6 | Acid | Available |
-| 7 | Glitch | Available |
-| 8 | Flanger | Available |
-| 9 | Ducking | Available |
-| 10 | Crush | Available |
-| 11 | Slicer | Coming soon |
+| 7 | Settings | Available |
+| 8 | Glitch | Available |
+| 9 | Flanger | Available |
+| 10 | Ducking | Available |
+| 11 | Crush | Available |
+| 12 | Slicer | available |
 
 ## Settings
 
@@ -89,7 +90,7 @@ Arduino libraries:
 - [DaisySP_Teensy](https://github.com/rheslip/DaisySP_Teensy) for Reverb
 - RINGS and STMLIB from [arduinoMI](https://github.com/poetaster/arduinoMI)
 
-Arduino-Pico provides `I2S`, `Wire`, and `SPI`. The build script loads the project library from `lib/PicoProlib` automatically.
+Arduino-Pico provides `I2S`, `Wire`, and `SPI`. The build script loads `lib/` as a single Arduino library automatically.
 
 ## Build
 
@@ -155,7 +156,7 @@ Fonts/                 OLED fonts
 Images/                App icon animation frames
 Tools/                 Audio asset conversion tools
 Web_images/            Documentation images
-lib/PicoProlib/        Shared PicoPro library
+lib/                  Shared PicoPro library
 sims/                  UI simulators
 ```
 

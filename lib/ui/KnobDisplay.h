@@ -5,7 +5,7 @@
 #include "../MenuTypes.h"
 #include "CVModulation.h"
 #include "ADSRDisplay.h"
-#include "../../../Fonts/Picopixel.h"
+#include "../../Fonts/Picopixel.h"
 
 #ifndef PICOPRO_KNOB_SCREEN_WIDTH
 #define PICOPRO_KNOB_SCREEN_WIDTH 64

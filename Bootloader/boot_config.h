@@ -10,7 +10,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include "../lib/PicoProlib/PicoBootSystemSettings.h"
+#include "../lib/PicoBootSystemSettings.h"
 
 #define PICO_BOOT_MAGIC 0x50494253u
 #define PICO_BOOT_VERSION 5u
