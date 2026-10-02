@@ -43,7 +43,7 @@ Apps and slot assignments are defined in [`Bootloader/apps.json`](Bootloader/app
 | ---: | --- | --- |
 | 0 | Delay | Available |
 | 1 | Reverb | Available |
-| 2 | Tuner | Coming soon |
+| 2 | Tuner | Available |
 | 3 | Wavetable | Available |
 | 4 | Grain | Available |
 | 5 | Rings | Available |
@@ -55,7 +55,33 @@ Apps and slot assignments are defined in [`Bootloader/apps.json`](Bootloader/app
 | 11 | Crush | Available |
 | 12 | Slicer | Coming soon |
 
-Tuner and Acid currently display `coming soon`. Reverb uses about 78% of global RAM, so it needs extra stability testing on hardware.
+### Tuner
+
+The single-page tuner detects the left audio input (A4=440 Hz, target range
+32–2000 Hz). Both original stereo channels pass through to the audio outputs;
+DC removal and filtering apply only to pitch detection. Detection uses a
+4096-sample window at 22.05 kHz, published every 1024 samples (46.4 ms, about
+21.53 results/second when analysis keeps up). OLED updates remain limited to
+one per 80 ms. The initial window still needs 185.8 ms to fill.
+
+Capture uses a 16,384-byte history ring and three 16,384-byte snapshots.
+Reader-owned snapshots are never overwritten; analysis overruns drop windows.
+Actual detection timing and glitch-free passthrough require hardware validation.
+The YIN search stops at its first qualifying local minimum and reuses the raw
+differences for interpolation, without storing a complete CMND table. Worst-case
+search remains bounded to 692 lags. Inversion commands are sent only when the
+zero-cent highlight changes state.
+
+Host regression tests:
+
+```sh
+clang++ -std=c++11 -O2 Apps/Tuner/tests/pitch_test.cpp Apps/Tuner/TunerDetector.cpp -o /tmp/picopro-tuner-pitch-test
+/tmp/picopro-tuner-pitch-test
+clang++ -std=c++11 -O2 -IApps/Tuner/tests/stubs Apps/Tuner/tests/capture_test.cpp Apps/Tuner/TunerAudio.cpp -o /tmp/picopro-tuner-capture-test
+/tmp/picopro-tuner-capture-test
+clang++ -std=c++11 -O2 -IApps/Tuner/tests/stubs Apps/Tuner/tests/ui_test.cpp Apps/Tuner/TunerUI.cpp -o /tmp/picopro-tuner-ui-test
+/tmp/picopro-tuner-ui-test
+```
 
 ## Internal routing
 
