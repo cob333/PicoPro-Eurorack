@@ -18,7 +18,7 @@ static ClickEncoder encoder(ENCA_IN, ENCB_IN, ENCSW_IN, ENCDIVIDE);
 static repeating_timer_t encoderTimer;
 static bool displayOK = false, editing = false, buttonArmed = true;
 static uint8_t page = 0;
-static uint32_t lastControlMs = 0;
+static uint32_t lastControlMs = 0, lastServiceMs = UINT32_MAX;
 static PicoStandbyDisplay standby;
 
 enum Parameter : uint8_t { MODE, PATTERN, CLOCK, BPM, RATIO, ATTACK, DUTY, MIX, DEPTH, COUNT };
@@ -114,8 +114,11 @@ void SlicerUI::begin() {
 }
 
 void SlicerUI::service() {
-  PicoProServiceSelectorExit(ENCSW_IN, encoder, save, prepareExit);
   const uint32_t now = millis();
+  // Match the 1 kHz encoder service; do not hammer shared memory between ticks.
+  if (now == lastServiceMs) return;
+  lastServiceMs = now;
+  PicoProServiceSelectorExit(ENCSW_IN, encoder, save, prepareExit);
   if (now - lastControlMs >= 5) { lastControlMs = now; publish(); }
   const int16_t rotation = encoder.getValue();
   const bool down = !digitalRead(ENCSW_IN);
@@ -139,8 +142,11 @@ void SlicerUI::service() {
   if (edge == ClickEncoder::ActiveEdge) buttonArmed = false;
   const uint8_t index = parameter();
   if (displayOK) {
-    const uint8_t overlay = PicoCVServiceOverlay(menus, COUNT, rotation, down, button);
-    if (overlay) { if (overlay == 2) draw(); return; }
+    // Menus were bound in begin(). Only service/rebind an actual CV overlay.
+    if (picoCVUiState != PICOPRO_CV_UI_OFF) {
+      const uint8_t overlay = PicoCVServiceOverlay(menus, COUNT, rotation, down, button);
+      if (overlay) { if (overlay == 2) draw(); return; }
+    }
     if (assignable(index) && PicoCVHandleEntryButton(button, index)) {
       PicoCVDrawOverlay(&menus[index]); return;
     }

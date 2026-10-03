@@ -62,7 +62,8 @@ void SlicerAudio::serviceClock() {
   }
 }
 
-void SlicerAudio::service(I2S &audio) {
+bool SlicerAudio::service(I2S &audio) {
+  bool progressed = false;
   if (slicerControls.read(controls_, controlRevision_)) engine_.setParameters(controls_.parameters);
   for (uint8_t count = 0; count < 32; ++count) {
     if (!pending_) {
@@ -70,6 +71,7 @@ void SlicerAudio::service(I2S &audio) {
         if (audio.available() < 4) break;
         const size_t bytes = audio.read(reinterpret_cast<uint8_t *>(input_) + received_, sizeof(input_) - received_);
         if (!bytes) break; // No progress: yield instead of retrying within this service call.
+        progressed = true;
         received_ += bytes;
         if (received_ != sizeof(input_)) continue;
       }
@@ -84,11 +86,14 @@ void SlicerAudio::service(I2S &audio) {
       output_[1] = toPCM(right * outputGain_);
       pending_ = true;
     }
-    transmitted_ += audio.write(reinterpret_cast<const uint8_t *>(output_) + transmitted_,
-                                 sizeof(output_) - transmitted_);
+    const size_t bytes = audio.write(reinterpret_cast<const uint8_t *>(output_) + transmitted_,
+                                     sizeof(output_) - transmitted_);
+    progressed = progressed || bytes != 0;
+    transmitted_ += bytes;
     if (transmitted_ != sizeof(output_)) break;
     PicoOutputMeterObserve(output_[0], output_[1]); // Exactly once per emitted frame.
     received_ = transmitted_ = 0;
     pending_ = false;
   }
+  return progressed;
 }

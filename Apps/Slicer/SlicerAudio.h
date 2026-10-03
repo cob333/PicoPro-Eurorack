@@ -7,9 +7,10 @@
 class SlicerAudio {
  public:
   // Startup-only timing configuration; use the installed I2S divider, not just
-  // its requested rate. Core0 calls this before publishing audioReady.
+  // its requested rate. The I2S owner calls this in setup1(), before begin().
   void begin(uint32_t clockHz, uint32_t clocksPerFrame);
-  void service(I2S &audio);
+  // True if any I/O progressed; false lets the owner await a DMA event.
+  bool service(I2S &audio);
  private:
   void serviceClock();
   SlicerEngine engine_;
