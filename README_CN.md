@@ -156,7 +156,7 @@ Fonts/                 OLED 字体
 Images/                应用图标动画帧
 Tools/                 音频资源转换工具
 Web_images/            文档图片
-lib/                  PicoPro 公共库
+lib/                   PicoPro 公共库
 sims/                  UI 模拟器
 ```
 

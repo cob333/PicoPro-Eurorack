@@ -53,7 +53,7 @@ Apps and slot assignments are defined in [`Bootloader/apps.json`](Bootloader/app
 | 9 | Flanger | Available |
 | 10 | Ducking | Available |
 | 11 | Crush | Available |
-| 12 | Slicer | available |
+| 12 | Slicer | Available |
 
 ## Settings
 
@@ -156,7 +156,7 @@ Fonts/                 OLED fonts
 Images/                App icon animation frames
 Tools/                 Audio asset conversion tools
 Web_images/            Documentation images
-lib/                  Shared PicoPro library
+lib/                   Shared PicoPro library
 sims/                  UI simulators
 ```
 
